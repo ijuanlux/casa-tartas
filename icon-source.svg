@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#c64b6c"/>
+
+  <!-- Plate -->
+  <ellipse cx="256" cy="430" rx="190" ry="18" fill="#2a1d13"/>
+  <ellipse cx="256" cy="426" rx="180" ry="12" fill="#3b2a1f"/>
+
+  <!-- ===== Bottom cake layer ===== -->
+  <rect x="98" y="295" width="316" height="130" rx="6" fill="#fbf3e8"/>
+  <!-- Drippy frosting on top of bottom layer -->
+  <path d="
+    M 98 305
+    C 110 280, 140 280, 152 305
+    C 164 285, 192 285, 204 305
+    C 216 280, 244 280, 256 305
+    C 268 280, 296 280, 308 305
+    C 320 285, 348 285, 360 305
+    C 372 280, 402 280, 414 305
+    L 414 320
+    L 98 320 Z" fill="#ffc4d4"/>
+  <!-- Frosting drips going down a bit -->
+  <ellipse cx="125" cy="320" rx="10" ry="14" fill="#ffc4d4"/>
+  <ellipse cx="200" cy="320" rx="10" ry="18" fill="#ffc4d4"/>
+  <ellipse cx="312" cy="320" rx="10" ry="14" fill="#ffc4d4"/>
+  <ellipse cx="385" cy="320" rx="10" ry="20" fill="#ffc4d4"/>
+
+  <!-- ===== Top cake layer ===== -->
+  <rect x="158" y="190" width="196" height="110" rx="6" fill="#fbf3e8"/>
+  <!-- Drippy frosting on top of top layer -->
+  <path d="
+    M 158 200
+    C 168 178, 192 178, 202 200
+    C 212 178, 236 178, 246 200
+    C 256 178, 280 178, 290 200
+    C 300 178, 324 178, 336 200
+    C 346 180, 348 180, 354 200
+    L 354 215
+    L 158 215 Z" fill="#ffc4d4"/>
+  <!-- Frosting drips going down a bit -->
+  <ellipse cx="180" cy="215" rx="8" ry="12" fill="#ffc4d4"/>
+  <ellipse cx="256" cy="215" rx="8" ry="16" fill="#ffc4d4"/>
+  <ellipse cx="332" cy="215" rx="8" ry="12" fill="#ffc4d4"/>
+
+  <!-- ===== Strawberry on top ===== -->
+  <g transform="translate(256 145)">
+    <!-- Body -->
+    <path d="
+      M 0 0
+      C -22 -2, -34 14, -30 36
+      C -26 56, -12 70, 0 72
+      C 12 70, 26 56, 30 36
+      C 34 14, 22 -2, 0 0 Z" fill="#e63946"/>
+    <!-- Seeds -->
+    <ellipse cx="-12" cy="20" rx="2" ry="3" fill="#fff5cc" transform="rotate(20 -12 20)"/>
+    <ellipse cx="6"   cy="18" rx="2" ry="3" fill="#fff5cc" transform="rotate(-15 6 18)"/>
+    <ellipse cx="-5"  cy="38" rx="2" ry="3" fill="#fff5cc" transform="rotate(10 -5 38)"/>
+    <ellipse cx="14"  cy="34" rx="2" ry="3" fill="#fff5cc" transform="rotate(-20 14 34)"/>
+    <ellipse cx="-15" cy="48" rx="2" ry="3" fill="#fff5cc" transform="rotate(15 -15 48)"/>
+    <ellipse cx="10"  cy="52" rx="2" ry="3" fill="#fff5cc" transform="rotate(-10 10 52)"/>
+    <!-- Leaf (calyx) -->
+    <path d="
+      M -20 -4
+      C -18 -16, -8 -18, 0 -14
+      C 8 -18, 18 -16, 20 -4
+      C 14 0, 6 -2, 0 -4
+      C -6 -2, -14 0, -20 -4 Z" fill="#3fa364"/>
+    <path d="M -14 -8 L 0 -16 L 14 -8" stroke="#2e7d4f" stroke-width="2" fill="none"/>
+    <!-- Stem -->
+    <rect x="-2" y="-22" width="4" height="10" rx="2" fill="#3fa364"/>
+  </g>
+</svg>

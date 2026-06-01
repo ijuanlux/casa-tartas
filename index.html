@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#c64b6c" />
+  <title>La Casa de las Tartas — Caja</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Pacifico&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+  { "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }}
+  </script>
+  <script>
+    // Aplica el tema guardado antes de pintar (evita flash claro->oscuro)
+    try { document.documentElement.setAttribute("data-theme", localStorage.getItem("casa_tartas_theme") || "light"); } catch (e) {}
+  </script>
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Casa Tartas" />
+</head>
+<body>
+
+  <!-- pepino: cursor + overlay de transición + controles flotantes -->
+  <div class="cursor" aria-hidden="true"></div>
+  <div class="cursor-dot" aria-hidden="true"></div>
+
+  <div class="fx-controls" aria-hidden="false">
+    <button id="fx-music" class="fx-btn" title="Música on/off" aria-label="Música">🔇</button>
+    <button id="fx-theme" class="fx-btn" title="Modo claro/oscuro" aria-label="Tema">🌙</button>
+  </div>
+
+  <div id="login-transition" hidden>
+    <div class="lt-cake">🎂</div>
+    <div class="lt-wave"></div>
+  </div>
+
+  <!-- ============ LOGIN ============ -->
+  <section id="view-login" class="view view-login">
+    <canvas id="login-bg" aria-hidden="true"></canvas>
+    <div class="login-inner">
+      <div class="card login-card">
+        <img id="login-logo" src="./logo-casa-tartas.png" alt="La Casa de las Tartas" />
+        <p class="brand-sub">Control de caja diaria</p>
+        <form id="login-form">
+          <label>
+            Email
+            <input type="email" id="login-email" autocomplete="username" required />
+          </label>
+          <label>
+            Contraseña
+            <input type="password" id="login-password" autocomplete="current-password" required minlength="6" />
+          </label>
+          <button type="submit" class="btn-primary magnetic">Entrar</button>
+          <p id="login-error" class="error" hidden></p>
+        </form>
+        <button type="button" id="play-game" class="btn-ghost btn-game magnetic">🎮 Tarta Invaders</button>
+      </div>
+      <p class="login-credit">Hecho con 🩷 para la mejor pastelería</p>
+    </div>
+  </section>
+
+  <!-- ============ APP ============ -->
+  <main id="view-app" class="view" hidden>
+    <header class="topbar">
+      <div class="topbar-brand">🎂 La Casa de las Tartas</div>
+      <nav class="tabs">
+        <button data-tab="nuevo" class="tab active">Nuevo cierre</button>
+        <button data-tab="historico" class="tab">Histórico</button>
+        <button data-tab="admin" class="tab admin-only" hidden>Admin</button>
+      </nav>
+      <div class="topbar-user">
+        <span id="conn-badge" class="conn-badge" hidden></span>
+        <span id="user-name"></span>
+        <button id="logout" class="btn-ghost">Salir</button>
+      </div>
+    </header>
+
+    <!-- TAB: NUEVO CIERRE -->
+    <section id="tab-nuevo" class="tab-panel">
+      <div class="card form-card">
+        <h2>Cierre de caja</h2>
+        <form id="cierre-form">
+          <div class="row">
+            <label>
+              Fecha
+              <input type="date" id="f-fecha" required />
+            </label>
+            <label>
+              Local
+              <select id="f-local" required></select>
+            </label>
+          </div>
+
+          <fieldset class="facturas-block">
+            <legend>Facturas</legend>
+            <div id="facturas-list"></div>
+            <button type="button" id="add-factura" class="btn-ghost">+ Añadir factura</button>
+          </fieldset>
+
+          <div class="row">
+            <label>
+              Tot. Facturas
+              <input type="number" id="f-tot-facturas" step="0.01" min="0" readonly />
+            </label>
+          </div>
+
+          <div class="row">
+            <label>
+              Tarjetas
+              <input type="number" id="f-tarjetas" step="0.01" min="0" inputmode="decimal" placeholder="0,00" />
+            </label>
+            <label>
+              Efectivo
+              <input type="number" id="f-efectivo" step="0.01" min="0" inputmode="decimal" placeholder="0,00" />
+            </label>
+          </div>
+
+          <div class="row total-row">
+            <label>
+              <span class="big">TOT. CAJA</span>
+              <input type="number" id="f-tot-caja" step="0.01" readonly class="big" />
+            </label>
+          </div>
+
+          <p id="cuadre-msg" class="cuadre" hidden></p>
+
+          <fieldset class="gastos-block">
+            <legend>Pagos a proveedores</legend>
+            <label>
+              Pagos por banco
+              <input type="number" id="f-pagos-banco" step="0.01" min="0" inputmode="decimal" value="0" />
+            </label>
+          </fieldset>
+
+          <fieldset class="gastos-block">
+            <legend>Suministros y gastos</legend>
+            <div id="suministros-list"></div>
+            <button type="button" id="add-suministro" class="btn-ghost">+ Añadir gasto</button>
+            <div class="row" style="margin-top:12px;">
+              <label>
+                Total suministros
+                <input type="number" id="f-tot-suministros" step="0.01" min="0" readonly />
+              </label>
+            </div>
+          </fieldset>
+
+          <label>
+            Notas (opcional)
+            <textarea id="f-notas" rows="2"></textarea>
+          </label>
+
+          <div class="actions">
+            <button type="submit" class="btn-primary">Guardar cierre</button>
+            <button type="reset" class="btn-ghost" id="reset-form">Limpiar</button>
+          </div>
+          <p id="cierre-msg" class="msg" hidden></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- TAB: HISTÓRICO -->
+    <section id="tab-historico" class="tab-panel" hidden>
+      <div class="card">
+        <div class="filters">
+          <label>
+            Desde <input type="date" id="filter-from" />
+          </label>
+          <label>
+            Hasta <input type="date" id="filter-to" />
+          </label>
+          <label>
+            Local <select id="filter-local"><option value="">Todos</option></select>
+          </label>
+          <button id="apply-filter" class="btn-primary">Filtrar</button>
+          <button id="export-csv" class="btn-ghost">Exportar CSV</button>
+        </div>
+        <div class="summary" id="summary"></div>
+        <div class="table-wrap">
+          <table id="historico-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Local</th>
+                <th>Tot. Facturas</th>
+                <th>Tarjetas</th>
+                <th>Efectivo</th>
+                <th>Tot. Caja</th>
+                <th>Pagos banco</th>
+                <th>Suministros</th>
+                <th>Quien</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: ADMIN -->
+    <section id="tab-admin" class="tab-panel admin-only" hidden>
+      <div class="card">
+        <h2>Locales</h2>
+        <form id="local-form" class="inline-form">
+          <input type="text" id="new-local" placeholder="Nombre del local" required />
+          <button type="submit" class="btn-primary">Añadir</button>
+        </form>
+        <ul id="locales-list"></ul>
+      </div>
+      <div class="card">
+        <h2>Usuarios</h2>
+        <p class="hint">Para crear cuentas, ve al panel de Supabase → Authentication → Users → "Add user". Luego desde aquí podrás darle rol admin.</p>
+        <table id="users-table">
+          <thead>
+            <tr><th>Nombre</th><th>Rol</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ MODAL DETALLE CIERRE ============ -->
+  <dialog id="detalle-modal">
+    <form method="dialog">
+      <h3 id="detalle-title">Detalle del cierre</h3>
+      <div id="detalle-body"></div>
+      <menu>
+        <button class="btn-ghost" id="detalle-delete" type="button" hidden>Eliminar</button>
+        <button class="btn-primary" value="close">Cerrar</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <!-- ============ MODAL JUEGO: TARTA INVADERS ============ -->
+  <dialog id="game-modal">
+    <div class="game-wrap">
+      <div class="game-head">
+        <h3>🎂 Tarta Invaders</h3>
+        <button class="btn-ghost" id="game-close" type="button">✕</button>
+      </div>
+      <canvas id="game-canvas" width="480" height="560"></canvas>
+      <p class="game-hint">Mueve con ← → (o arrastra), dispara con espacio (o toca). ¡La tarta debe parar la invasión de planetas!</p>
+    </div>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="./config.js"></script>
+  <script src="./app.js" type="module"></script>
+  <script src="./pepino.js" type="module"></script>
+</body>
+</html>
