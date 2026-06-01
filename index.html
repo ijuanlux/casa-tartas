@@ -43,11 +43,58 @@
     <div class="lt-stage">
       <div class="lt-bills"></div>
       <div class="lt-cake">
-        <span class="lt-cake-emoji">🎂</span>
-        <span class="lt-shades">🕶️</span>
-        <span class="lt-hand">🤑</span>
+        <svg class="gc" viewBox="0 0 240 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="gcGold" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffe49a"/><stop offset=".5" stop-color="#f4c430"/><stop offset="1" stop-color="#b8860b"/>
+            </linearGradient>
+            <linearGradient id="gcSponge" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#f9e0b0"/><stop offset="1" stop-color="#e9c186"/>
+            </linearGradient>
+            <radialGradient id="gcLens" cx=".35" cy=".3" r=".9">
+              <stop offset="0" stop-color="#4a4a55"/><stop offset=".5" stop-color="#16161c"/><stop offset="1" stop-color="#000"/>
+            </radialGradient>
+          </defs>
+          <ellipse class="gc-shadow" cx="120" cy="240" rx="92" ry="13" fill="rgba(0,0,0,.28)"/>
+          <!-- tier inferior -->
+          <g class="gc-body">
+            <rect x="40" y="150" width="160" height="80" rx="16" fill="url(#gcSponge)"/>
+            <rect x="40" y="186" width="160" height="9" fill="#fff4e2" opacity=".7"/>
+            <path d="M40 142 h160 v8 a16 16 0 0 1 -32 0 a16 16 0 0 1 -32 0 a16 16 0 0 1 -32 0 a16 16 0 0 1 -32 0 a16 16 0 0 1 -32 0 z" fill="#ff7fa6"/>
+            <path d="M40 142 h160 v6 a16 16 0 0 1 -32 0 a16 16 0 0 1 -32 0 a16 16 0 0 1 -32 0 a16 16 0 0 1 -32 0 a16 16 0 0 1 -32 0 z" fill="#ff96b6" opacity=".6"/>
+          </g>
+          <!-- cadena de oro -->
+          <g class="gc-chain">
+            <path d="M64 176 Q120 214 176 176" fill="none" stroke="url(#gcGold)" stroke-width="6" stroke-linecap="round" stroke-dasharray="2 5"/>
+            <circle cx="120" cy="201" r="14" fill="url(#gcGold)" stroke="#9a6b00" stroke-width="1.5"/>
+            <text x="120" y="207" text-anchor="middle" font-family="Fredoka, sans-serif" font-weight="700" font-size="16" fill="#7a5300">€</text>
+          </g>
+          <!-- tier superior (la cara) -->
+          <g class="gc-top">
+            <rect x="72" y="96" width="96" height="58" rx="12" fill="url(#gcSponge)"/>
+            <path d="M72 90 h96 v6 a10 10 0 0 1 -19.2 0 a10 10 0 0 1 -19.2 0 a10 10 0 0 1 -19.2 0 a10 10 0 0 1 -19.2 0 a10 10 0 0 1 -19.2 0 z" fill="#ff7fa6"/>
+          </g>
+          <!-- gafas de sol -->
+          <g class="gc-shades">
+            <rect x="79" y="108" width="34" height="22" rx="9" fill="url(#gcLens)"/>
+            <rect x="127" y="108" width="34" height="22" rx="9" fill="url(#gcLens)"/>
+            <rect x="111" y="113" width="18" height="5" rx="2.5" fill="#16161c"/>
+            <path d="M79 116 l-12 -4" stroke="#16161c" stroke-width="4" stroke-linecap="round"/>
+            <path d="M161 116 l12 -4" stroke="#16161c" stroke-width="4" stroke-linecap="round"/>
+            <path class="gc-glare" d="M85 112 l8 0 -10 14 -6 0 z" fill="#fff" opacity=".55"/>
+            <path class="gc-glare" d="M133 112 l8 0 -10 14 -6 0 z" fill="#fff" opacity=".55"/>
+          </g>
+          <!-- sonrisa chulesca + palillo -->
+          <path class="gc-mouth" d="M104 140 q 18 14 36 1" fill="none" stroke="#8a4b2a" stroke-width="3.5" stroke-linecap="round"/>
+          <path d="M138 142 l16 5" stroke="#caa46a" stroke-width="3" stroke-linecap="round"/>
+          <!-- velita + cereza -->
+          <rect x="117" y="64" width="6" height="22" rx="2" fill="#ff5e8a"/>
+          <circle class="gc-flame" cx="120" cy="60" r="5" fill="#ffd24a"/>
+          <circle cx="146" cy="86" r="7" fill="#d6204a"/>
+          <path d="M146 79 q 6 -8 12 -6" fill="none" stroke="#2e7d32" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
       </div>
-      <div class="lt-text">HERE'S MY MONEY 💸</div>
+      <div class="lt-text" aria-hidden="true">¡QUE LLUEVA LA PASTA!</div>
     </div>
   </div>
 

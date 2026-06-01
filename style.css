@@ -132,26 +132,27 @@ body.login-mode, body.login-mode * { cursor: none; }
   border-radius: 50%;
 }
 .lt-stage { position: relative; display: grid; place-items: center; width: 100%; height: 100%; }
-.lt-cake { position: relative; font-size: min(34vw, 240px); line-height: 1; filter: drop-shadow(0 12px 34px rgba(0,0,0,0.4)); }
-.lt-cake .lt-cake-emoji { display: block; }
-.lt-cake .lt-shades {
-  position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%);
-  font-size: 0.46em; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
-}
-.lt-cake .lt-hand {
-  position: absolute; right: -8%; bottom: 6%; font-size: 0.4em;
-  transform: rotate(12deg);
-}
-.lt-bills { position: absolute; inset: 0; pointer-events: none; }
+.lt-cake { position: relative; width: min(60vw, 300px); will-change: transform; filter: drop-shadow(0 16px 40px rgba(0,0,0,0.45)); }
+.lt-cake .gc { width: 100%; height: auto; display: block; overflow: visible; }
+.gc-shades, .gc-mouth, .gc-chain, .gc-top, .gc-flame { transform-box: fill-box; }
+.gc-flame { transform-origin: 50% 100%; animation: gc-flicker 0.5s ease-in-out infinite alternate; }
+@keyframes gc-flicker { from { transform: scaleY(0.85) translateY(1px); opacity: .85; } to { transform: scaleY(1.1); opacity: 1; } }
+
+.lt-bills { position: absolute; inset: 0; pointer-events: none; perspective: 900px; }
 .lt-bills .bill {
-  position: absolute; left: 50%; top: 46%;
-  font-size: min(9vw, 64px); will-change: transform, opacity;
+  position: absolute; left: 50%; top: 46%; width: clamp(44px, 7vw, 64px);
+  margin: -15px 0 0 -28px; will-change: transform, opacity; transform-style: preserve-3d;
 }
+.lt-bills .bill svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 4px 8px rgba(0,0,0,.25)); }
+
 .lt-text {
-  position: absolute; bottom: 14%; left: 50%; transform: translateX(-50%);
-  font-family: 'Fredoka', sans-serif; font-weight: 700; color: #fff;
-  font-size: clamp(1.4rem, 6vw, 3rem); letter-spacing: 0.02em; white-space: nowrap;
-  text-shadow: 0 4px 18px rgba(0,0,0,0.45); opacity: 0;
+  position: absolute; bottom: 13%; left: 50%; transform: translateX(-50%);
+  font-family: 'Fredoka', sans-serif; font-weight: 700; white-space: nowrap;
+  font-size: clamp(1.6rem, 7vw, 3.6rem); letter-spacing: 0.01em; opacity: 0;
+  background: linear-gradient(180deg, #fff6d0 0%, #ffd84a 45%, #f0a800 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-text-stroke: 2px #7a3c12;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
 }
 
 /* ====== Modal juego ====== */
