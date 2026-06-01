@@ -200,6 +200,20 @@ function observeLogin() {
 /* ============================================================
    6. TRANSICIÓN AL HACER LOGIN
    ============================================================ */
+const BILL_CHARS = ["💵", "💸", "💶", "🤑", "💴", "💷"];
+function spawnBills(container, n) {
+  container.innerHTML = "";
+  const bills = [];
+  for (let i = 0; i < n; i++) {
+    const b = document.createElement("span");
+    b.className = "bill";
+    b.textContent = BILL_CHARS[i % BILL_CHARS.length];
+    container.appendChild(b);
+    bills.push(b);
+  }
+  return bills;
+}
+
 function loginTransition() {
   const overlay = $("#login-transition");
   if (!overlay) return;
@@ -207,27 +221,70 @@ function loginTransition() {
   if (localStorage.getItem(MUSIC_KEY) === "on" && !music.on) musicOn();
 
   if (!hasGsap || reduceMotion) {
-    // fallback simple
     overlay.hidden = false;
     overlay.style.opacity = "1";
-    setTimeout(() => { overlay.hidden = true; overlay.style.opacity = ""; }, 400);
+    setTimeout(() => { overlay.hidden = true; overlay.style.opacity = ""; }, 500);
     return;
   }
+
   overlay.hidden = false;
   const wave = overlay.querySelector(".lt-wave");
   const cake = overlay.querySelector(".lt-cake");
-  gsap.set(overlay, { autoAlpha: 1 });
+  const shades = overlay.querySelector(".lt-shades");
+  const hand = overlay.querySelector(".lt-hand");
+  const text = overlay.querySelector(".lt-text");
+  const billsBox = overlay.querySelector(".lt-bills");
+  const bills = spawnBills(billsBox, 22);
+
+  gsap.set(overlay, { autoAlpha: 1, yPercent: 0 });
   gsap.set(wave, { scale: 0, transformOrigin: "50% 50%" });
-  gsap.set(cake, { scale: 0, rotate: -40, opacity: 0 });
+  gsap.set(cake, { scale: 0, rotate: -25, opacity: 0, y: 0 });
+  gsap.set(shades, { y: -120, opacity: 0, rotate: -8 });
+  gsap.set(hand, { scale: 0, opacity: 0 });
+  gsap.set(text, { opacity: 0, y: 30, scale: 0.7 });
+  gsap.set(bills, { x: 0, y: 0, opacity: 0, scale: 0.4, rotate: 0 });
+
+  // lluvia de billetes que sale disparada desde la tarta
+  function moneyBurst() {
+    bills.forEach((b) => {
+      const angle = (Math.random() - 0.5) * Math.PI * 1.4;   // hacia los lados/arriba
+      const dist = 180 + Math.random() * 320;
+      const dx = Math.sin(angle) * dist;
+      const dy = -Math.cos(angle) * dist * 0.6;
+      gsap.set(b, { x: 0, y: 0, opacity: 1, scale: 0.6 + Math.random() * 0.7, rotate: 0 });
+      gsap.to(b, {
+        x: dx, y: dy, rotate: (Math.random() - 0.5) * 720,
+        duration: 0.5 + Math.random() * 0.3, ease: "power2.out",
+      });
+      gsap.to(b, {                                            // luego caen con gravedad
+        y: "+=" + (innerHeight * 0.8 + Math.random() * 200),
+        opacity: 0, duration: 1 + Math.random() * 0.6, ease: "power1.in", delay: 0.4 + Math.random() * 0.2,
+      });
+    });
+  }
 
   const tl = gsap.timeline({
-    onComplete: () => { overlay.hidden = true; gsap.set(overlay, { clearProps: "all" }); },
+    onComplete: () => { overlay.hidden = true; gsap.set(overlay, { clearProps: "all" }); billsBox.innerHTML = ""; },
   });
-  tl.to(wave, { scale: 1, duration: 0.7, ease: "expo.inOut" })
-    .to(cake, { scale: 1, rotate: 0, opacity: 1, duration: 0.6, ease: "back.out(1.8)" }, "-=0.35")
-    .to(cake, { y: -14, duration: 0.25, yoyo: true, repeat: 1, ease: "sine.inOut" })
-    .to(cake, { scale: 7, opacity: 0, duration: 0.7, ease: "power2.in" }, "+=0.1")
-    .to(overlay, { yPercent: -100, duration: 0.8, ease: "expo.inOut" }, "-=0.45");
+  tl.to(wave, { scale: 1, duration: 0.6, ease: "expo.inOut" })
+    // la tarta entra con chulería
+    .to(cake, { scale: 1, rotate: 0, opacity: 1, duration: 0.55, ease: "back.out(2)" }, "-=0.3")
+    // le caen las gafas de sol
+    .to(shades, { y: 0, opacity: 1, rotate: 0, duration: 0.4, ease: "back.out(2.5)" }, "-=0.1")
+    .to(hand, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2)" }, "-=0.15")
+    // swagger: se balancea como un jefe
+    .to(cake, { rotate: 9, duration: 0.18, ease: "sine.inOut" })
+    .to(cake, { rotate: -7, duration: 0.18, ease: "sine.inOut" })
+    .to(cake, { rotate: 0, duration: 0.18, ease: "sine.inOut" })
+    // ¡here's my money bitch! lluvia de billetes + texto
+    .add(() => { moneyBurst(); }, "-=0.3")
+    .to(text, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "back.out(2.2)" }, "-=0.2")
+    .to(cake, { y: -18, duration: 0.2, yoyo: true, repeat: 1, ease: "sine.inOut" })
+    .add(() => { moneyBurst(); }, "+=0.05")                   // segunda tanda de billetes
+    .to({}, { duration: 0.5 })                                // deja ver la lluvia
+    // se va hacia arriba revelando la app
+    .to([cake, text], { scale: "+=0.4", opacity: 0, duration: 0.4, ease: "power2.in" })
+    .to(overlay, { yPercent: -100, duration: 0.85, ease: "expo.inOut" }, "-=0.2");
 }
 
 /* ============================================================

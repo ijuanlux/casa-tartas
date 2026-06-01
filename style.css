@@ -124,14 +124,35 @@ body.login-mode .cursor-dot {
 body.login-mode, body.login-mode * { cursor: none; }
 @media (hover: none) { body.login-mode, body.login-mode * { cursor: auto; } }
 
-/* ====== Overlay de transición de login ====== */
-#login-transition { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; pointer-events: none; }
+/* ====== Overlay de transición de login (tarta gánster) ====== */
+#login-transition { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; pointer-events: none; overflow: hidden; }
 #login-transition .lt-wave {
   position: absolute; inset: -20%;
-  background: radial-gradient(circle at 50% 50%, var(--accent) 0%, var(--accent-dark) 60%, #7a2440 100%);
+  background: radial-gradient(circle at 50% 50%, var(--accent) 0%, var(--accent-dark) 55%, #5e1730 100%);
   border-radius: 50%;
 }
-#login-transition .lt-cake { position: relative; font-size: 22vw; line-height: 1; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.3)); }
+.lt-stage { position: relative; display: grid; place-items: center; width: 100%; height: 100%; }
+.lt-cake { position: relative; font-size: min(34vw, 240px); line-height: 1; filter: drop-shadow(0 12px 34px rgba(0,0,0,0.4)); }
+.lt-cake .lt-cake-emoji { display: block; }
+.lt-cake .lt-shades {
+  position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%);
+  font-size: 0.46em; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+.lt-cake .lt-hand {
+  position: absolute; right: -8%; bottom: 6%; font-size: 0.4em;
+  transform: rotate(12deg);
+}
+.lt-bills { position: absolute; inset: 0; pointer-events: none; }
+.lt-bills .bill {
+  position: absolute; left: 50%; top: 46%;
+  font-size: min(9vw, 64px); will-change: transform, opacity;
+}
+.lt-text {
+  position: absolute; bottom: 14%; left: 50%; transform: translateX(-50%);
+  font-family: 'Fredoka', sans-serif; font-weight: 700; color: #fff;
+  font-size: clamp(1.4rem, 6vw, 3rem); letter-spacing: 0.02em; white-space: nowrap;
+  text-shadow: 0 4px 18px rgba(0,0,0,0.45); opacity: 0;
+}
 
 /* ====== Modal juego ====== */
 #game-modal { max-width: 520px; width: 94%; }
