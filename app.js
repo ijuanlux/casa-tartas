@@ -656,17 +656,17 @@ function renderStats() {
   const gridc = dark ? "rgba(255,255,255,.08)" : "rgba(0,0,0,.06)";
   const PINK = "#c64b6c", GOLD = "#f4c430", CREAM = "#e9b06a", BLUE = "#4f9bd6", PURPLE = "#9b7ed1", GREEN = "#3aa76d", TEAL = "#33b1a6";
 
-  // ---- estética global "pro" ----
+  // ---- estética global "pro" (sin sustituir objetos internos de Chart.js) ----
   Chart.defaults.color = inkSoft;
   Chart.defaults.font.family = "Fredoka, sans-serif";
-  Chart.defaults.animation = { duration: 900, easing: "easeOutQuart" };
+  Chart.defaults.animation.duration = 900;
+  Chart.defaults.animation.easing = "easeOutQuart";
   Object.assign(Chart.defaults.plugins.tooltip, {
     backgroundColor: dark ? "rgba(10,6,12,.92)" : "rgba(40,24,34,.92)",
     padding: 12, cornerRadius: 12, titleColor: "#fff", bodyColor: "#fff",
-    titleFont: { family: "Fredoka", weight: "700", size: 13 }, bodyFont: { family: "Fredoka", size: 13 },
     boxPadding: 6, usePointStyle: true, borderColor: "rgba(255,255,255,.12)", borderWidth: 1,
   });
-  Chart.defaults.plugins.legend.labels = { usePointStyle: true, pointStyle: "circle", padding: 14, boxWidth: 8, boxHeight: 8, font: { family: "Fredoka", size: 12 } };
+  const legBottom = () => ({ position: "bottom", labels: { usePointStyle: true, pointStyle: "circle", padding: 12, boxWidth: 8, boxHeight: 8 } });
 
   // helpers de degradado + plugins
   const vgrad = (chart, c1, c2) => {
@@ -707,7 +707,7 @@ function renderStats() {
   charts.comp = mk("#chart-composicion", {
     type: "doughnut",
     data: { labels: ["Facturas", "Tarjetas", "Efectivo"], datasets: [{ data: [totalFact, totalTarj, totalEfec], backgroundColor: [PINK, BLUE, CREAM], borderColor: card, borderWidth: 3, borderRadius: 6, hoverOffset: 10, spacing: 2 }] },
-    options: { maintainAspectRatio: false, cutout: "70%", plugins: { legend: { position: "bottom" }, centerText: { value: fmtMoney(totalCaja), label: "caja" }, tooltip: { callbacks: { label: pctTip } } } },
+    options: { maintainAspectRatio: false, cutout: "70%", plugins: { legend: legBottom(), centerText: { value: fmtMoney(totalCaja), label: "caja" }, tooltip: { callbacks: { label: pctTip } } } },
     plugins: [centerText],
   });
 
@@ -717,7 +717,7 @@ function renderStats() {
   charts.loc = mk("#chart-locales", {
     type: "doughnut",
     data: { labels: localNames, datasets: [{ data: localNames.map((n) => byLocal[n]), backgroundColor: [PINK, GOLD, BLUE, PURPLE, GREEN, TEAL, CREAM], borderColor: card, borderWidth: 3, borderRadius: 6, hoverOffset: 10, spacing: 2 }] },
-    options: { maintainAspectRatio: false, cutout: "62%", plugins: { legend: { position: "bottom" }, centerText: { value: String(localNames.length), label: localNames.length === 1 ? "local" : "locales" }, tooltip: { callbacks: { label: pctTip } } } },
+    options: { maintainAspectRatio: false, cutout: "62%", plugins: { legend: legBottom(), centerText: { value: String(localNames.length), label: localNames.length === 1 ? "local" : "locales" }, tooltip: { callbacks: { label: pctTip } } } },
     plugins: [centerText],
   });
 
@@ -767,7 +767,7 @@ function renderStats() {
   charts.pago = mk("#chart-pago", {
     type: "doughnut",
     data: { labels: ["Tarjetas", "Efectivo"], datasets: [{ data: [totalTarj, totalEfec], backgroundColor: [BLUE, GOLD], borderColor: card, borderWidth: 3, borderRadius: 6, hoverOffset: 10, spacing: 2 }] },
-    options: { maintainAspectRatio: false, cutout: "70%", plugins: { legend: { position: "bottom" }, centerText: { value: fmtMoney(totalTarj + totalEfec), label: "cobrado" }, tooltip: { callbacks: { label: pctTip } } } },
+    options: { maintainAspectRatio: false, cutout: "70%", plugins: { legend: legBottom(), centerText: { value: fmtMoney(totalTarj + totalEfec), label: "cobrado" }, tooltip: { callbacks: { label: pctTip } } } },
     plugins: [centerText],
   });
 
