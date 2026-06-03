@@ -545,50 +545,80 @@ const charts = {};
 function destroyCharts() { Object.values(charts).forEach(c => { try { c.destroy(); } catch (e) {} }); }
 function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
+const statsCaja = (r) => Number(r.tot_facturas || 0) + Number(r.tarjetas || 0) + Number(r.efectivo || 0);
+const statsSum = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
+let statsAll = [];
+
+function mesLabel(ym) {
+  const [y, m] = ym.split("-");
+  const l = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+  return l.charAt(0).toUpperCase() + l.slice(1);
+}
+
+function populateMonths(rows) {
+  const sel = $("#stats-month");
+  const cur = sel.value;
+  const months = [...new Set(rows.map((r) => r.fecha.slice(0, 7)))].sort().reverse();
+  sel.innerHTML = `<option value="">Todos los meses</option>` +
+    months.map((m) => `<option value="${m}">${mesLabel(m)}</option>`).join("");
+  if (months.includes(cur)) sel.value = cur;
+}
+
 async function loadEstadisticas() {
   if (typeof Chart === "undefined") { console.warn("Chart.js no cargó"); return; }
-  const days = Number($("#stats-range").value || 0);
-  let q = sb.from("cierres")
-    .select("fecha, tot_facturas, tarjetas, efectivo, tot_caja, pagos_banco, tot_suministros, local_id, locales(nombre)")
-    .order("fecha", { ascending: true })
-    .limit(2000);
-  if (days > 0) {
-    const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-    q = q.gte("fecha", from);
-  }
-  let rows = [];
-  try { const { data, error } = await q; if (error) throw error; rows = data || []; }
-  catch (e) { console.warn("estadisticas error", e); }
+  try {
+    const { data, error } = await sb.from("cierres")
+      .select("fecha, tot_facturas, tarjetas, efectivo, tot_caja, pagos_banco, tot_suministros, local_id, locales(nombre)")
+      .order("fecha", { ascending: true })
+      .limit(5000);
+    if (error) throw error;
+    statsAll = data || [];
+  } catch (e) { console.warn("estadisticas error", e); statsAll = statsAll || []; }
+  populateMonths(statsAll);
+  renderStats();
+}
 
-  const has = rows.length > 0;
+function renderStats() {
+  const has = statsAll.length > 0;
   $("#stats-empty").hidden = has;
   $("#stats-content").hidden = !has;
   if (!has) { destroyCharts(); return; }
 
-  const caja = (r) => Number(r.tot_facturas || 0) + Number(r.tarjetas || 0) + Number(r.efectivo || 0);
-  const sum = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
+  // filtros: mes tiene prioridad sobre periodo
+  const month = $("#stats-month").value;
+  const days = Number($("#stats-range").value || 0);
+  const rangeSel = $("#stats-range");
+  rangeSel.disabled = !!month;            // si hay mes elegido, el periodo no aplica
+  let scoped;
+  if (month) {
+    scoped = statsAll.filter((r) => r.fecha.slice(0, 7) === month);
+  } else if (days > 0) {
+    const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+    scoped = statsAll.filter((r) => r.fecha >= from);
+  } else {
+    scoped = statsAll;
+  }
+  if (!scoped.length) scoped = statsAll;
 
-  const totalCaja = sum(rows, caja);
-  const totalFact = sum(rows, (r) => Number(r.tot_facturas || 0));
-  const totalTarj = sum(rows, (r) => Number(r.tarjetas || 0));
-  const totalEfec = sum(rows, (r) => Number(r.efectivo || 0));
-  const totalBanco = sum(rows, (r) => Number(r.pagos_banco || 0));
-  const totalSum = sum(rows, (r) => Number(r.tot_suministros || 0));
+  const totalCaja = statsSum(scoped, statsCaja);
+  const totalFact = statsSum(scoped, (r) => Number(r.tot_facturas || 0));
+  const totalTarj = statsSum(scoped, (r) => Number(r.tarjetas || 0));
+  const totalEfec = statsSum(scoped, (r) => Number(r.efectivo || 0));
+  const totalBanco = statsSum(scoped, (r) => Number(r.pagos_banco || 0));
+  const totalSumin = statsSum(scoped, (r) => Number(r.tot_suministros || 0));
 
-  // KPIs
   $("#kpi-total").textContent = fmtMoney(totalCaja);
-  $("#kpi-count").textContent = rows.length;
-  $("#kpi-avg").textContent = fmtMoney(totalCaja / rows.length);
-  let best = rows[0];
-  rows.forEach((r) => { if (caja(r) > caja(best)) best = r; });
-  $("#kpi-best").textContent = fmtMoney(caja(best));
+  $("#kpi-count").textContent = scoped.length;
+  $("#kpi-avg").textContent = fmtMoney(totalCaja / scoped.length);
+  let best = scoped[0];
+  scoped.forEach((r) => { if (statsCaja(r) > statsCaja(best)) best = r; });
+  $("#kpi-best").textContent = fmtMoney(statsCaja(best));
   $("#kpi-best-date").textContent = best.fecha + (best.locales?.nombre ? " · " + best.locales.nombre : "");
+  $("#evo-title").textContent = month ? "Evolución diaria · " + mesLabel(month) : "Evolución de la caja";
 
-  // colores y tema
-  const ink = cssVar("--ink") || "#3b2a1f";
   const line = cssVar("--line") || "#e7d3b8";
   const card = cssVar("--card") || "#fff";
-  Chart.defaults.color = ink;
+  Chart.defaults.color = cssVar("--ink") || "#3b2a1f";
   if (Chart.defaults.font) Chart.defaults.font.family = "Fredoka, sans-serif";
   const PINK = "#c64b6c", GOLD = "#f4c430", CREAM = "#f0c896", BLUE = "#4f9bd6", PURPLE = "#9b7ed1", GREEN = "#3aa76d";
 
@@ -601,7 +631,7 @@ async function loadEstadisticas() {
   });
 
   const byLocal = {};
-  rows.forEach((r) => { const n = r.locales?.nombre || ("Local " + r.local_id); byLocal[n] = (byLocal[n] || 0) + caja(r); });
+  scoped.forEach((r) => { const n = r.locales?.nombre || ("Local " + r.local_id); byLocal[n] = (byLocal[n] || 0) + statsCaja(r); });
   const localNames = Object.keys(byLocal);
   charts.loc = new Chart($("#chart-locales"), {
     type: "pie",
@@ -609,8 +639,34 @@ async function loadEstadisticas() {
     options: { plugins: { legend: { position: "bottom" } } },
   });
 
+  // Caja por MES (siempre todos los meses; barra clicable para hacer drill-in)
+  const byMonth = {};
+  statsAll.forEach((r) => { const m = r.fecha.slice(0, 7); byMonth[m] = (byMonth[m] || 0) + statsCaja(r); });
+  const months = Object.keys(byMonth).sort();
+  charts.meses = new Chart($("#chart-meses"), {
+    type: "bar",
+    data: {
+      labels: months.map(mesLabel),
+      datasets: [{
+        data: months.map((m) => byMonth[m]), borderRadius: 8,
+        backgroundColor: months.map((m) => (m === month ? PINK : "rgba(198,75,108,.45)")),
+      }],
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, grid: { color: line } }, x: { grid: { display: false } } },
+      onClick: (evt, els) => {
+        if (!els.length) return;
+        const m = months[els[0].index];
+        const sel = $("#stats-month");
+        sel.value = (sel.value === m ? "" : m);   // re-toca = quitar filtro
+        renderStats();
+      },
+    },
+  });
+
   const byDate = {};
-  rows.forEach((r) => { byDate[r.fecha] = (byDate[r.fecha] || 0) + caja(r); });
+  scoped.forEach((r) => { byDate[r.fecha] = (byDate[r.fecha] || 0) + statsCaja(r); });
   const dates = Object.keys(byDate).sort();
   charts.evo = new Chart($("#chart-evolucion"), {
     type: "line",
@@ -626,11 +682,12 @@ async function loadEstadisticas() {
 
   charts.gastos = new Chart($("#chart-gastos"), {
     type: "bar",
-    data: { labels: ["Suministros", "Pagos banco"], datasets: [{ data: [totalSum, totalBanco], backgroundColor: [PURPLE, GREEN], borderRadius: 8 }] },
+    data: { labels: ["Suministros", "Pagos banco"], datasets: [{ data: [totalSumin, totalBanco], backgroundColor: [PURPLE, GREEN], borderRadius: 8 }] },
     options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: line } }, x: { grid: { display: false } } } },
   });
 }
-$("#stats-range")?.addEventListener("change", loadEstadisticas);
+$("#stats-range")?.addEventListener("change", renderStats);
+$("#stats-month")?.addEventListener("change", renderStats);
 
 // ===== Admin =====
 async function loadAdmin() {

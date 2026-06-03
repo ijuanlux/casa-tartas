@@ -170,8 +170,11 @@ body.login-mode, body.login-mode * { cursor: none; }
 /* ====== ESTADÍSTICAS ====== */
 .stats-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; max-width: 1100px; margin: 16px auto 0; padding: 0 4px; }
 .stats-head h2 { margin: 0; font-family: 'Fredoka', sans-serif; }
+.stats-filters { display: flex; gap: 12px; flex-wrap: wrap; }
 .stats-range { margin: 0; display: flex; align-items: center; gap: 8px; }
 .stats-range select { width: auto; margin-top: 0; }
+.stats-range select:disabled { opacity: .5; }
+.chart-hint { font-family: -apple-system, sans-serif; font-weight: 400; font-size: 0.78rem; color: var(--ink-soft); }
 
 .kpi-grid { max-width: 1100px; margin: 16px auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0 4px; }
 .kpi { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; display: flex; flex-direction: column; gap: 4px; }

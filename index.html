@@ -266,15 +266,23 @@
     <section id="tab-estadisticas" class="tab-panel" hidden>
       <div class="stats-head">
         <h2>📊 Panel de estadísticas</h2>
-        <label class="stats-range">
-          Periodo
-          <select id="stats-range">
-            <option value="0">Todo</option>
-            <option value="30">Últimos 30 días</option>
-            <option value="90">Últimos 90 días</option>
-            <option value="365">Último año</option>
-          </select>
-        </label>
+        <div class="stats-filters">
+          <label class="stats-range">
+            Periodo
+            <select id="stats-range">
+              <option value="0">Todo</option>
+              <option value="30">Últimos 30 días</option>
+              <option value="90">Últimos 90 días</option>
+              <option value="365">Último año</option>
+            </select>
+          </label>
+          <label class="stats-range">
+            Mes
+            <select id="stats-month">
+              <option value="">Todos los meses</option>
+            </select>
+          </label>
+        </div>
       </div>
       <div id="stats-empty" class="card" hidden><p class="hint">Aún no hay cierres para sacar estadísticas. ¡Mete alguno y vuelve!</p></div>
       <div id="stats-content">
@@ -294,7 +302,11 @@
             <div class="chart-box"><canvas id="chart-locales"></canvas></div>
           </div>
           <div class="card chart-card chart-wide">
-            <h3>Evolución de la caja</h3>
+            <h3>Caja por mes <span class="chart-hint">(toca una barra para ver ese mes)</span></h3>
+            <div class="chart-box"><canvas id="chart-meses"></canvas></div>
+          </div>
+          <div class="card chart-card chart-wide">
+            <h3 id="evo-title">Evolución de la caja</h3>
             <div class="chart-box"><canvas id="chart-evolucion"></canvas></div>
           </div>
           <div class="card chart-card">
