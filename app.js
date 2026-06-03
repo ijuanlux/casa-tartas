@@ -121,9 +121,11 @@ function setTab(tab) {
   $("#tab-nuevo").hidden = tab !== "nuevo";
   $("#tab-historico").hidden = tab !== "historico";
   $("#tab-estadisticas").hidden = tab !== "estadisticas";
+  $("#tab-cuaderno").hidden = tab !== "cuaderno";
   $("#tab-admin").hidden = tab !== "admin";
   if (tab === "historico")    loadHistorico();
   if (tab === "estadisticas") loadEstadisticas();
+  if (tab === "cuaderno")     loadCuaderno();
   if (tab === "admin")        loadAdmin();
 }
 
@@ -1047,6 +1049,119 @@ async function casaDigest() {
   ].join("\n");
 }
 window.casaDigest = casaDigest;
+
+// ===== Cuaderno (facturas foto + proveedores + notas) =====
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function loadCuaderno() { loadFacturasFoto(); loadProveedores(); loadNotas(); }
+
+// --- Facturas con foto ---
+$("#ff-file")?.addEventListener("change", () => {
+  const f = $("#ff-file").files[0];
+  $("#ff-file-name").textContent = f ? "📷 " + f.name : "📷 Hacer foto / elegir imagen";
+});
+$("#factura-foto-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("#ff-msg"); msg.hidden = true;
+  const file = $("#ff-file").files[0];
+  if (!file) { msg.textContent = "Haz una foto o elige una imagen primero."; msg.className = "msg err"; msg.hidden = false; return; }
+  const fecha = $("#ff-fecha").value || todayISO();
+  const importe = Number($("#ff-importe").value || 0);
+  const desc = $("#ff-desc").value.trim() || null;
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const path = `${me.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+  msg.textContent = "Subiendo…"; msg.className = "msg"; msg.hidden = false;
+  try {
+    const { error: upErr } = await sb.storage.from("facturas").upload(path, file, { contentType: file.type || "image/jpeg" });
+    if (upErr) throw upErr;
+    const { error } = await sb.from("facturas_foto").insert({ fecha, importe, descripcion: desc, path, user_id: me.id });
+    if (error) throw error;
+    e.target.reset(); $("#ff-file-name").textContent = "📷 Hacer foto / elegir imagen";
+    msg.textContent = "✓ Factura guardada"; msg.className = "msg ok"; msg.hidden = false;
+    loadFacturasFoto();
+  } catch (err) { msg.textContent = "Error: " + (err.message || err); msg.className = "msg err"; msg.hidden = false; }
+});
+async function loadFacturasFoto() {
+  const cont = $("#facturas-foto-list"); if (!cont) return;
+  const { data, error } = await sb.from("facturas_foto").select("*").order("fecha", { ascending: false }).limit(200);
+  if (error) { cont.innerHTML = `<p class="hint">No se pudo cargar.</p>`; return; }
+  if (!data.length) { cont.innerHTML = `<p class="hint">Sin facturas todavía. Haz una foto del ticket y guárdalo. 🧾</p>`; return; }
+  cont.innerHTML = data.map((f) => `
+    <div class="cuad-item factura-item">
+      <img class="ff-thumb" alt="factura" data-path="${esc(f.path)}" />
+      <div class="cuad-item-body">
+        <strong>${f.fecha || ""}${f.importe ? " · " + fmtMoney(f.importe) : ""}</strong>
+        <span>${esc(f.descripcion || "")}</span>
+      </div>
+      <button class="btn-ghost cuad-del" data-id="${f.id}" data-path="${esc(f.path)}" title="Borrar">🗑</button>
+    </div>`).join("");
+  for (const img of cont.querySelectorAll(".ff-thumb")) {
+    const { data: su } = await sb.storage.from("facturas").createSignedUrl(img.dataset.path, 3600);
+    if (su?.signedUrl) { img.src = su.signedUrl; img.style.cursor = "zoom-in"; img.addEventListener("click", () => window.open(su.signedUrl, "_blank")); }
+  }
+  cont.querySelectorAll(".cuad-del").forEach((b) => b.addEventListener("click", async () => {
+    if (!confirm("¿Borrar esta factura?")) return;
+    await sb.storage.from("facturas").remove([b.dataset.path]);
+    await sb.from("facturas_foto").delete().eq("id", Number(b.dataset.id));
+    loadFacturasFoto();
+  }));
+}
+
+// --- Proveedores ---
+$("#proveedor-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const nombre = $("#pv-nombre").value.trim(); if (!nombre) return;
+  const { error } = await sb.from("proveedores").insert({ nombre, telefono: $("#pv-tel").value.trim() || null, email: $("#pv-email").value.trim() || null, notas: $("#pv-notas").value.trim() || null });
+  if (error) { alert(error.message); return; }
+  e.target.reset(); loadProveedores();
+});
+async function loadProveedores() {
+  const cont = $("#proveedores-list"); if (!cont) return;
+  const { data, error } = await sb.from("proveedores").select("*").order("nombre");
+  if (error) { cont.innerHTML = `<p class="hint">No se pudo cargar.</p>`; return; }
+  if (!data.length) { cont.innerHTML = `<p class="hint">Sin proveedores todavía. 📇</p>`; return; }
+  cont.innerHTML = data.map((p) => `
+    <div class="cuad-item">
+      <div class="cuad-item-body">
+        <strong>${esc(p.nombre)}</strong>
+        ${p.notas ? `<span>${esc(p.notas)}</span>` : ""}
+        <div class="cuad-actions">
+          ${p.telefono ? `<a class="chip" href="tel:${esc(p.telefono)}">📞 ${esc(p.telefono)}</a>` : ""}
+          ${p.email ? `<a class="chip" href="mailto:${esc(p.email)}">✉️ Email</a>` : ""}
+        </div>
+      </div>
+      <button class="btn-ghost cuad-del" data-id="${p.id}" title="Borrar">🗑</button>
+    </div>`).join("");
+  cont.querySelectorAll(".cuad-del").forEach((b) => b.addEventListener("click", async () => {
+    if (!confirm("¿Borrar este proveedor?")) return;
+    await sb.from("proveedores").delete().eq("id", Number(b.dataset.id));
+    loadProveedores();
+  }));
+}
+
+// --- Notas ---
+$("#nota-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const texto = $("#nota-texto").value.trim(); if (!texto) return;
+  const { error } = await sb.from("notas").insert({ texto, user_id: me.id });
+  if (error) { alert(error.message); return; }
+  e.target.reset(); loadNotas();
+});
+async function loadNotas() {
+  const cont = $("#notas-list"); if (!cont) return;
+  const { data, error } = await sb.from("notas").select("*").order("created_at", { ascending: false }).limit(200);
+  if (error) { cont.innerHTML = `<p class="hint">No se pudo cargar.</p>`; return; }
+  if (!data.length) { cont.innerHTML = `<p class="hint">Sin notas todavía. 📝</p>`; return; }
+  cont.innerHTML = data.map((n) => `
+    <div class="cuad-item nota-item">
+      <div class="cuad-item-body"><span>${esc(n.texto)}</span><small>${(n.created_at || "").slice(0, 10)}</small></div>
+      <button class="btn-ghost cuad-del" data-id="${n.id}" title="Borrar">🗑</button>
+    </div>`).join("");
+  cont.querySelectorAll(".cuad-del").forEach((b) => b.addEventListener("click", async () => {
+    await sb.from("notas").delete().eq("id", Number(b.dataset.id));
+    loadNotas();
+  }));
+}
 
 // ===== Admin =====
 async function loadAdmin() {

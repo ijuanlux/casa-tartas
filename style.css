@@ -278,6 +278,28 @@ body.login-mode, body.login-mode * { cursor: none; }
 .cc-form input { flex: 1; margin: 0; }
 .cc-form button { background: var(--accent); color: #fff; border: none; border-radius: 10px; width: 44px; font-size: 1.1rem; }
 
+/* ====== Cuaderno ====== */
+.cuaderno-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.cuaderno-grid .card { margin: 0; }
+.cuaderno-grid .card:first-child { grid-row: span 2; }
+@media (max-width: 760px) { .cuaderno-grid { grid-template-columns: 1fr; } .cuaderno-grid .card:first-child { grid-row: auto; } }
+.cuad-form { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.cuad-form .row { gap: 10px; }
+.cuad-form textarea { margin-top: 0; }
+.file-label { display: block; border: 1.5px dashed var(--line); border-radius: 10px; padding: 14px; text-align: center; cursor: pointer; color: var(--ink-soft); background: var(--bg-2); transition: border-color .15s; }
+.file-label:hover { border-color: var(--accent); color: var(--accent); }
+.cuad-list { display: flex; flex-direction: column; gap: 8px; }
+.cuad-item { display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; }
+.cuad-item-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cuad-item-body strong { font-size: 0.95rem; }
+.cuad-item-body span { font-size: 0.88rem; color: var(--ink-soft); word-break: break-word; }
+.cuad-item-body small { font-size: 0.75rem; color: var(--ink-soft); }
+.ff-thumb { width: 54px; height: 54px; object-fit: cover; border-radius: 8px; background: var(--bg-2); flex-shrink: 0; }
+.cuad-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.chip { font-size: 0.8rem; padding: 3px 10px; border-radius: 999px; background: var(--bg-2); color: var(--ink); text-decoration: none; border: 1px solid var(--line); }
+.chip:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.cuad-del { padding: 4px 8px; flex-shrink: 0; }
+
 /* ====== Confeti (bonus récord) ====== */
 .confetti-layer { position: fixed; inset: 0; pointer-events: none; z-index: 950; overflow: hidden; }
 .confetti-bit { position: absolute; top: -40px; animation: confetti-fall linear forwards; will-change: transform; }

@@ -132,6 +132,7 @@
         <button data-tab="nuevo" class="tab active">Nuevo cierre</button>
         <button data-tab="historico" class="tab">Histórico</button>
         <button data-tab="estadisticas" class="tab">📊 Estadísticas</button>
+        <button data-tab="cuaderno" class="tab">📒 Cuaderno</button>
         <button data-tab="admin" class="tab admin-only" hidden>Admin</button>
       </nav>
       <div class="topbar-user">
@@ -341,6 +342,55 @@
               <div class="chart-box"><canvas id="chart-gastos"></canvas></div>
             </div></div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: CUADERNO -->
+    <section id="tab-cuaderno" class="tab-panel" hidden>
+      <div class="cuaderno-grid">
+        <!-- Facturas con foto -->
+        <div class="card">
+          <h2>🧾 Facturas</h2>
+          <form id="factura-foto-form" class="cuad-form">
+            <div class="row">
+              <label>Fecha <input type="date" id="ff-fecha" /></label>
+              <label>Importe (€) <input type="number" id="ff-importe" step="0.01" min="0" inputmode="decimal" placeholder="0,00" /></label>
+            </div>
+            <label>Descripción <input type="text" id="ff-desc" placeholder="Ej: Harina, proveedor X..." /></label>
+            <label class="file-label">
+              <span id="ff-file-name">📷 Hacer foto / elegir imagen</span>
+              <input type="file" id="ff-file" accept="image/*" capture="environment" hidden />
+            </label>
+            <button type="submit" class="btn-primary">Guardar factura</button>
+            <p id="ff-msg" class="msg" hidden></p>
+          </form>
+          <div id="facturas-foto-list" class="cuad-list"></div>
+        </div>
+
+        <!-- Proveedores -->
+        <div class="card">
+          <h2>📇 Proveedores</h2>
+          <form id="proveedor-form" class="cuad-form">
+            <label>Nombre <input type="text" id="pv-nombre" placeholder="Nombre del proveedor" required /></label>
+            <div class="row">
+              <label>Teléfono <input type="tel" id="pv-tel" placeholder="600 000 000" /></label>
+              <label>Email <input type="email" id="pv-email" placeholder="correo@proveedor.com" /></label>
+            </div>
+            <label>Notas <input type="text" id="pv-notas" placeholder="Horario, pedidos mínimos..." /></label>
+            <button type="submit" class="btn-primary">Añadir proveedor</button>
+          </form>
+          <div id="proveedores-list" class="cuad-list"></div>
+        </div>
+
+        <!-- Notas -->
+        <div class="card">
+          <h2>📝 Notas</h2>
+          <form id="nota-form" class="cuad-form">
+            <textarea id="nota-texto" rows="2" placeholder="Apunta lo que sea..." required></textarea>
+            <button type="submit" class="btn-primary">Añadir nota</button>
+          </form>
+          <div id="notas-list" class="cuad-list"></div>
         </div>
       </div>
     </section>
