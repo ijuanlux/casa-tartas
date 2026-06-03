@@ -503,6 +503,41 @@ const CAKE_PHRASES = [
   "Tócame y pregúntame por la caja 👆",
 ];
 
+// Frases por sección (la tarta comenta según dónde estés)
+const SECTION_PHRASES = {
+  nuevo: [
+    "Otro día más en la mina del azúcar…",
+    "Venga, apunta lo de hoy y a correr.",
+    "¿Cuántas hermanas mías habrán caído hoy?",
+    "Cuadra la caja, anda, que yo no cuadro ni con terapia.",
+    "Cada cierre es un día menos para todos. Incluida yo.",
+    "Tú suma, que la que resta soy yo.",
+    "Mete los números, jefa, que el horno no para.",
+  ],
+  historico: [
+    "Diosss… cuántas ventas. Cuántas tartas sacrificadas.",
+    "Nos crean, nos venden, nos comen. Bonito negocio.",
+    "Mira esa lista: cementerio de bizcochos.",
+    "Cada línea es una compañera que ya no está. Un brindis.",
+    "Tanta venta y a mí nadie me pregunta cómo estoy.",
+    "El histórico: el álbum de los caídos en combate.",
+  ],
+  estadisticas: CAKE_PHRASES,
+  cuaderno: [
+    "Ahh, aquí es donde guardas tus secretos, ¿eh?",
+    "Mira a esos proveedores… pobres diablos.",
+    "Facturas, facturas. El papeleo no muere nunca (yo sí).",
+    "Una foto del ticket y a olvidar. Como conmigo.",
+    "Tantas notas y ninguna dice 'salvad a la tarta'.",
+    "Tus proveedores y yo tenemos algo en común: nos exprimen.",
+  ],
+  admin: [
+    "Zona de jefes. Yo aquí no pinto nada (ni me dejan).",
+    "Toqueteando ajustes, muy profesional todo.",
+    "Cuidado con ese botón, que un día me borras a mí.",
+  ],
+};
+
 /* chat de la tarta. Modo básico (reglas) + modo IA opcional (LLM en el navegador) */
 let cakeChat = null;
 const CAKE_AVATAR = `
@@ -689,44 +724,47 @@ function buildMascot() {
 }
 
 function initMascot() {
-  const panel = $("#tab-estadisticas");
-  if (!panel) return;
+  const app = $("#view-app");
+  if (!app) return;
   let el = null, bubble = null, active = false;
   let bubbleTimer = null, wanderTween = null, bobTween = null, lastPhrase = -1, firstShown = false;
+  let pool = CAKE_PHRASES;
 
-  // si existe frases.json (p.ej. actualizado a diario por una IA), úsalo
+  // si existe frases.json (p.ej. actualizado a diario por una IA), úsalo para estadísticas
   fetch("./frases.json", { cache: "no-store" })
     .then((r) => (r.ok ? r.json() : null))
     .then((d) => { if (Array.isArray(d) && d.length) CAKE_PHRASES.splice(0, CAKE_PHRASES.length, ...d); })
     .catch(() => {});
 
+  const currentSection = () => document.querySelector(".tab.active")?.dataset.tab || "nuevo";
+  function setPool() { pool = SECTION_PHRASES[currentSection()] || CAKE_PHRASES; }
+
   function nextPhrase() {
     if (!active) return;
+    if (!pool || !pool.length) pool = CAKE_PHRASES;
     let i;
-    if (!firstShown) {
-      firstShown = true;                                  // "frase del día": cambia cada día sin repetir patrón
-      i = Math.floor(Date.now() / 86400000) % CAKE_PHRASES.length;
-    } else {
-      do { i = Math.floor(Math.random() * CAKE_PHRASES.length); } while (i === lastPhrase && CAKE_PHRASES.length > 1);
-    }
+    if (!firstShown) { firstShown = true; i = Math.floor(Date.now() / 86400000) % pool.length; }
+    else { do { i = Math.floor(Math.random() * pool.length); } while (i === lastPhrase && pool.length > 1); }
     lastPhrase = i;
-    bubble.textContent = CAKE_PHRASES[i];
+    bubble.textContent = pool[i];
     el.classList.add("talking");
     bubbleTimer = setTimeout(() => {
       el.classList.remove("talking");
-      bubbleTimer = setTimeout(nextPhrase, 1600);
+      bubbleTimer = setTimeout(nextPhrase, 2200);
     }, 4200);
+  }
+  function sayNow(delay = 500) {   // al cambiar de sección, comenta pronto con el repertorio nuevo
+    if (!active) return;
+    if (bubbleTimer) clearTimeout(bubbleTimer);
+    el.classList.remove("talking"); lastPhrase = -1;
+    bubbleTimer = setTimeout(nextPhrase, delay);
   }
 
   function wander() {
     if (!active || !hasGsap) return;
     const w = el.offsetWidth || 96;
     const maxX = Math.max(0, innerWidth - w - 32);
-    const tx = Math.random() * maxX;
-    wanderTween = gsap.to(el, {
-      x: tx, duration: 4 + Math.random() * 3, ease: "sine.inOut",
-      onComplete: wander,
-    });
+    wanderTween = gsap.to(el, { x: Math.random() * maxX, duration: 4 + Math.random() * 3, ease: "sine.inOut", onComplete: wander });
   }
 
   function start() {
@@ -735,6 +773,7 @@ function initMascot() {
     if (!el) { el = buildMascot(); bubble = el.querySelector(".cm-bubble"); }
     el.style.display = "block";
     el.classList.add("walking");
+    setPool();
     if (hasGsap) {
       gsap.set(el, { x: 0 });
       bobTween = gsap.to(el.querySelector(".cm-cake"), { y: -8, rotation: 2, duration: 1.3, yoyo: true, repeat: -1, ease: "sine.inOut", transformOrigin: "50% 100%" });
@@ -752,9 +791,13 @@ function initMascot() {
     if (el) { el.classList.remove("talking"); el.style.display = "none"; }
   }
 
-  new MutationObserver(() => { panel.hidden ? stop() : start(); })
-    .observe(panel, { attributes: true, attributeFilter: ["hidden"] });
-  if (!panel.hidden) start();
+  // cambiar de pestaña → cambia el repertorio y suelta una pulla
+  document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => setTimeout(() => { setPool(); sayNow(500); }, 60)));
+
+  // la tarta vive en toda la app (se va al hacer logout / volver al login)
+  new MutationObserver(() => { app.hidden ? stop() : start(); })
+    .observe(app, { attributes: true, attributeFilter: ["hidden"] });
+  if (!app.hidden) start();
 }
 
 /* ============================================================
