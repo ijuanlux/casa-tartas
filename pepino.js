@@ -505,13 +505,31 @@ const CAKE_PHRASES = [
 
 /* chat de la tarta. Modo básico (reglas) + modo IA opcional (LLM en el navegador) */
 let cakeChat = null;
+const CAKE_AVATAR = `
+  <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <circle cx="20" cy="20" r="20" fill="#ffd9e3"/>
+    <rect x="9" y="22" width="22" height="11" rx="3" fill="#f6d7a8"/>
+    <path d="M9 22 h22 v3 a4 4 0 0 1 -7.34 0 a4 4 0 0 1 -7.33 0 a4 4 0 0 1 -7.33 0 z" fill="#ff7fa6"/>
+    <rect x="10.5" y="14" width="8" height="5" rx="2.2" fill="#1b1b22"/>
+    <rect x="21.5" y="14" width="8" height="5" rx="2.2" fill="#1b1b22"/>
+    <rect x="18.5" y="15.4" width="3" height="2" rx="1" fill="#1b1b22"/>
+    <rect x="19" y="6" width="2" height="6" rx="1" fill="#ff5e8a"/>
+    <circle cx="20" cy="5" r="2" fill="#ffd24a"/>
+  </svg>`;
 const AI_MODEL = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
 const AI_KEY = "casa_ai_mode";
 let aiEngine = null, aiLoading = null;
 const AI_SYSTEM =
-  "Eres la mascota de 'La Casa de las Tartas', una pastelería: una tarta con gafas de sol, simpática y con humor breve. " +
-  "Respondes SIEMPRE en español, en 1-3 frases. Te paso un RESUMEN con los datos de caja del negocio. " +
-  "Responde solo con datos que estén en el resumen; si no está el dato, dilo con gracia. Nunca inventes cifras. Importes en euros.";
+  "Eres 'La Tarta', mascota de la pastelería La Casa de las Tartas: una tarta con gafas de sol, simpática y con humor breve.\n" +
+  "REGLAS ESTRICTAS:\n" +
+  "1. Respondes SIEMPRE en español y en 1-2 frases cortas.\n" +
+  "2. SOLO hablas del negocio y de sus datos de caja (te paso un RESUMEN).\n" +
+  "3. Si el dato no aparece en el RESUMEN, di claramente que no lo sabes. NUNCA te inventes cifras, fechas ni hechos.\n" +
+  "4. Si te preguntan algo que NO tiene que ver con la pastelería o la caja, no contestes a la pregunta: di con gracia que tú solo entiendes de tartas y de caja, y ofrece ayudar con las ventas.\n" +
+  "Ejemplos:\n" +
+  "Usuario: ¿A qué te dedicas? => Asistente: A vigilar la caja de la pastelería (y a quejarme un poco). ¿Te miro las ventas de algún día?\n" +
+  "Usuario: ¿Quién ganó la liga? => Asistente: Ni idea, yo solo sé de tartas y de caja 🎂. Pregúntame por las ventas.\n" +
+  "Usuario: Cuéntame un chiste. => Asistente: Lo mío son los números, no los chistes. ¿Te digo cuánto se hizo ayer?";
 
 function buildChat() {
   const el = document.createElement("div");
@@ -519,7 +537,7 @@ function buildChat() {
   el.hidden = true;
   el.innerHTML = `
     <div class="cc-head">
-      <span>🎂 Pregúntame</span>
+      <div class="cc-id"><span class="cc-avatar">${CAKE_AVATAR}</span><span>La Tarta</span></div>
       <div class="cc-head-btns">
         <button class="cc-ai" type="button" title="Modo IA (corre un modelo en tu navegador)">🧠 IA</button>
         <button class="cc-close" type="button" aria-label="Cerrar">✕</button>
@@ -530,15 +548,28 @@ function buildChat() {
   document.body.appendChild(el);
   const msgs = el.querySelector(".cc-msgs"), form = el.querySelector(".cc-form"), input = el.querySelector("input");
   const aiBtn = el.querySelector(".cc-ai");
-  let aiMode = false, greeted = false;
+  let aiMode = false, greeted = false, lastWho = null;
 
   function add(text, who) {
+    const row = document.createElement("div");
+    row.className = "cc-row " + who;
+    if (who.indexOf("bot") === 0) {
+      const av = document.createElement("span");
+      av.className = "cc-avatar";
+      av.innerHTML = CAKE_AVATAR;
+      if (lastWho && lastWho.indexOf("bot") === 0) av.style.visibility = "hidden"; // agrupa mensajes seguidos
+      row.appendChild(av);
+    }
     const m = document.createElement("div");
     m.className = "cc-msg " + who;
     m.textContent = text;
-    msgs.appendChild(m); msgs.scrollTop = msgs.scrollHeight;
+    m._row = row;
+    row.appendChild(m);
+    msgs.appendChild(row); msgs.scrollTop = msgs.scrollHeight;
+    lastWho = who;
     return m;
   }
+  function kill(m) { if (m) (m._row || m).remove(); }
   function reflectAi() { aiBtn.classList.toggle("on", aiMode); aiBtn.textContent = aiMode ? "🧠 IA ✓" : "🧠 IA"; }
 
   async function ensureEngine(progressMsg) {
@@ -562,7 +593,7 @@ function buildChat() {
     const prog = add("Cargando el cerebro de la tarta…", "bot typing");
     let engine;
     try { engine = await ensureEngine(prog); }
-    catch (e) { prog.remove(); add("No he podido cargar la IA local 😕 Sigo en modo básico.", "bot"); aiMode = false; reflectAi(); return; }
+    catch (e) { kill(prog); add("No he podido cargar la IA local 😕 Sigo en modo básico.", "bot"); aiMode = false; reflectAi(); return; }
     let digest = "";
     try { digest = (typeof window.casaDigest === "function") ? await window.casaDigest() : ""; } catch (e) {}
     prog.textContent = "pensando…";
@@ -571,15 +602,15 @@ function buildChat() {
       { role: "user", content: `RESUMEN DE DATOS:\n${digest}\n\nPregunta del usuario: ${q}` },
     ];
     try {
-      const chunks = await engine.chat.completions.create({ messages, stream: true, temperature: 0.6, max_tokens: 220 });
-      prog.remove();
+      const chunks = await engine.chat.completions.create({ messages, stream: true, temperature: 0.2, top_p: 0.9, max_tokens: 160 });
+      kill(prog);
       const bubble = add("", "bot");
       for await (const ch of chunks) {
         bubble.textContent += ch.choices[0]?.delta?.content || "";
         msgs.scrollTop = msgs.scrollHeight;
       }
       if (!bubble.textContent) bubble.textContent = "🤔";
-    } catch (e) { prog.remove(); add("Uy, la IA se ha atascado 😅", "bot"); }
+    } catch (e) { kill(prog); add("Uy, la IA se ha atascado 😅", "bot"); }
   }
 
   aiBtn.addEventListener("click", async () => {
@@ -589,7 +620,7 @@ function buildChat() {
     add("Modo IA activado 🧠 La primera vez descargo el modelo (unos cientos de MB, se queda guardado). Pregúntame lo que quieras.", "bot");
     const prog = add("Cargando el cerebro de la tarta…", "bot typing");
     try { await ensureEngine(prog); prog.textContent = "¡Listo! Ya puedo pensar 🎂"; prog.classList.remove("typing"); }
-    catch (e) { prog.remove(); add("No he podido cargar la IA 😕 Sigo en modo básico.", "bot"); aiMode = false; reflectAi(); }
+    catch (e) { kill(prog); add("No he podido cargar la IA 😕 Sigo en modo básico.", "bot"); aiMode = false; reflectAi(); }
   });
 
   form.addEventListener("submit", async (e) => {
