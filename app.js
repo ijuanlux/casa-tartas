@@ -769,9 +769,50 @@ async function casaQuery(question) {
   if (/banco|proveedor/.test(t)) return `Pagos por banco ${label}: ${fmtMoney(sum(scope, (r) => Number(r.pagos_banco || 0)))}.`;
   if (/total|cu[aá]nto|caja|factur|ingres|gana|vend/.test(t)) return `${mo ? "Caja " + label : "Caja total"}: ${fmtMoney(sum(scope, caja))} 🎂 (${scope.length} cierres).`;
 
-  return "Puedo decirte la caja de un día (\"¿cuánto se hizo el 15 de mayo?\" o \"¿y ayer?\"), el total o la media de un mes, el mejor día, o cuánto en tarjeta/efectivo. ¿Qué quieres saber? 🎂";
+  return CASA_HELP;
 }
+const CASA_HELP = "Puedo decirte la caja de un día (\"¿cuánto se hizo el 15 de mayo?\" o \"¿y ayer?\"), el total o la media de un mes, el mejor día, o cuánto en tarjeta/efectivo. ¿Qué quieres saber? 🎂";
+window.CASA_HELP = CASA_HELP;
 window.casaQuery = casaQuery;
+
+// Resumen compacto de los datos, para dar contexto a un LLM
+async function casaDigest() {
+  let rows = [];
+  try {
+    const { data, error } = await sb.from("cierres")
+      .select("fecha, tot_facturas, tarjetas, efectivo, pagos_banco, tot_suministros")
+      .order("fecha", { ascending: true }).limit(5000);
+    if (error) throw error; rows = data || [];
+  } catch (e) { return "No hay datos disponibles."; }
+  if (!rows.length) return "Todavía no hay ningún cierre guardado.";
+  const caja = (r) => Number(r.tot_facturas || 0) + Number(r.tarjetas || 0) + Number(r.efectivo || 0);
+  const sum = (a, f) => a.reduce((s, x) => s + f(x), 0);
+  const eur = (n) => Math.round(n) + "€";
+
+  const total = sum(rows, caja);
+  let best = rows[0], worst = rows[0];
+  rows.forEach((r) => { if (caja(r) > caja(best)) best = r; if (caja(r) < caja(worst)) worst = r; });
+
+  const byMonth = {};
+  rows.forEach((r) => { const m = r.fecha.slice(0, 7); byMonth[m] = (byMonth[m] || 0) + caja(r); });
+  const DOW = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+  const dowSum = {}, dowCnt = {};
+  rows.forEach((r) => { const [y, m, d] = r.fecha.split("-").map(Number); const wd = new Date(y, m - 1, d).getDay(); dowSum[wd] = (dowSum[wd] || 0) + caja(r); dowCnt[wd] = (dowCnt[wd] || 0) + 1; });
+
+  const last = rows.slice(-12).map((r) => `${r.fecha}: ${eur(caja(r))}`).join("; ");
+  const months = Object.keys(byMonth).sort().slice(-12).map((m) => `${m}: ${eur(byMonth[m])}`).join("; ");
+  const dow = Object.keys(dowSum).map((wd) => `${DOW[wd]}: ${eur(dowSum[wd] / dowCnt[wd])}`).join("; ");
+
+  return [
+    `Negocio: La Casa de las Tartas (pastelería). Moneda: euros. "Caja" = facturas + tarjetas + efectivo.`,
+    `Nº de cierres: ${rows.length}. Caja total acumulada: ${eur(total)}. Media por cierre: ${eur(total / rows.length)}.`,
+    `Mejor día: ${best.fecha} (${eur(caja(best))}). Día más flojo: ${worst.fecha} (${eur(caja(worst))}).`,
+    `Total por mes: ${months}.`,
+    `Media por día de la semana: ${dow}.`,
+    `Últimos cierres: ${last}.`,
+  ].join("\n");
+}
+window.casaDigest = casaDigest;
 
 // ===== Admin =====
 async function loadAdmin() {

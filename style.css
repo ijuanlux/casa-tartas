@@ -251,6 +251,9 @@ body.login-mode, body.login-mode * { cursor: none; }
   animation: card-in 0.3s ease both;
 }
 .cc-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--accent); color: #fff; font-family: 'Fredoka', sans-serif; font-weight: 600; }
+.cc-head-btns { display: flex; gap: 6px; align-items: center; }
+.cc-ai { background: rgba(255,255,255,.2); border: none; color: #fff; font-size: 0.8rem; font-weight: 600; padding: 4px 9px; border-radius: 999px; }
+.cc-ai.on { background: #fff; color: var(--accent); }
 .cc-head .cc-close { background: rgba(255,255,255,.2); border: none; color: #fff; width: 26px; height: 26px; border-radius: 50%; }
 .cc-msgs { padding: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto; }
 .cc-msg { padding: 9px 12px; border-radius: 14px; font-size: 0.9rem; line-height: 1.35; max-width: 85%; white-space: pre-line; }

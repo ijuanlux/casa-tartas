@@ -503,18 +503,35 @@ const CAKE_PHRASES = [
   "Tócame y pregúntame por la caja 👆",
 ];
 
-/* chat de la tarta (IA básica: usa window.casaQuery de app.js) */
+/* chat de la tarta. Modo básico (reglas) + modo IA opcional (LLM en el navegador) */
 let cakeChat = null;
+const AI_MODEL = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
+const AI_KEY = "casa_ai_mode";
+let aiEngine = null, aiLoading = null;
+const AI_SYSTEM =
+  "Eres la mascota de 'La Casa de las Tartas', una pastelería: una tarta con gafas de sol, simpática y con humor breve. " +
+  "Respondes SIEMPRE en español, en 1-3 frases. Te paso un RESUMEN con los datos de caja del negocio. " +
+  "Responde solo con datos que estén en el resumen; si no está el dato, dilo con gracia. Nunca inventes cifras. Importes en euros.";
+
 function buildChat() {
   const el = document.createElement("div");
   el.className = "cake-chat";
   el.hidden = true;
   el.innerHTML = `
-    <div class="cc-head"><span>🎂 Pregúntame</span><button class="cc-close" type="button" aria-label="Cerrar">✕</button></div>
+    <div class="cc-head">
+      <span>🎂 Pregúntame</span>
+      <div class="cc-head-btns">
+        <button class="cc-ai" type="button" title="Modo IA (corre un modelo en tu navegador)">🧠 IA</button>
+        <button class="cc-close" type="button" aria-label="Cerrar">✕</button>
+      </div>
+    </div>
     <div class="cc-msgs"></div>
     <form class="cc-form"><input type="text" placeholder="¿Cuánto se hizo el 15 de mayo?" autocomplete="off" /><button type="submit" aria-label="Enviar">➤</button></form>`;
   document.body.appendChild(el);
   const msgs = el.querySelector(".cc-msgs"), form = el.querySelector(".cc-form"), input = el.querySelector("input");
+  const aiBtn = el.querySelector(".cc-ai");
+  let aiMode = false, greeted = false;
+
   function add(text, who) {
     const m = document.createElement("div");
     m.className = "cc-msg " + who;
@@ -522,22 +539,82 @@ function buildChat() {
     msgs.appendChild(m); msgs.scrollTop = msgs.scrollHeight;
     return m;
   }
-  let greeted = false;
+  function reflectAi() { aiBtn.classList.toggle("on", aiMode); aiBtn.textContent = aiMode ? "🧠 IA ✓" : "🧠 IA"; }
+
+  async function ensureEngine(progressMsg) {
+    if (aiEngine) return aiEngine;
+    if (aiLoading) return aiLoading;
+    aiLoading = (async () => {
+      const webllm = await import("https://esm.run/@mlc-ai/web-llm");
+      aiEngine = await webllm.CreateMLCEngine(AI_MODEL, {
+        initProgressCallback: (p) => {
+          const pct = p.progress ? ` (${Math.round(p.progress * 100)}%)` : "";
+          progressMsg.textContent = "Cargando el cerebro de la tarta…" + pct;
+          msgs.scrollTop = msgs.scrollHeight;
+        },
+      });
+      return aiEngine;
+    })();
+    return aiLoading;
+  }
+
+  async function askLLM(q) {
+    const prog = add("Cargando el cerebro de la tarta…", "bot typing");
+    let engine;
+    try { engine = await ensureEngine(prog); }
+    catch (e) { prog.remove(); add("No he podido cargar la IA local 😕 Sigo en modo básico.", "bot"); aiMode = false; reflectAi(); return; }
+    let digest = "";
+    try { digest = (typeof window.casaDigest === "function") ? await window.casaDigest() : ""; } catch (e) {}
+    prog.textContent = "pensando…";
+    const messages = [
+      { role: "system", content: AI_SYSTEM },
+      { role: "user", content: `RESUMEN DE DATOS:\n${digest}\n\nPregunta del usuario: ${q}` },
+    ];
+    try {
+      const chunks = await engine.chat.completions.create({ messages, stream: true, temperature: 0.6, max_tokens: 220 });
+      prog.remove();
+      const bubble = add("", "bot");
+      for await (const ch of chunks) {
+        bubble.textContent += ch.choices[0]?.delta?.content || "";
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+      if (!bubble.textContent) bubble.textContent = "🤔";
+    } catch (e) { prog.remove(); add("Uy, la IA se ha atascado 😅", "bot"); }
+  }
+
+  aiBtn.addEventListener("click", async () => {
+    if (aiMode) { aiMode = false; reflectAi(); try { localStorage.setItem(AI_KEY, "off"); } catch (e) {} add("Modo IA desactivado. Vuelvo al modo rápido.", "bot"); return; }
+    if (!navigator.gpu) { add("Tu dispositivo no soporta IA local (hace falta WebGPU, va en Chrome/Edge de escritorio). Sigo en modo básico, que también responde de lujo 💪", "bot"); return; }
+    aiMode = true; reflectAi(); try { localStorage.setItem(AI_KEY, "on"); } catch (e) {}
+    add("Modo IA activado 🧠 La primera vez descargo el modelo (unos cientos de MB, se queda guardado). Pregúntame lo que quieras.", "bot");
+    const prog = add("Cargando el cerebro de la tarta…", "bot typing");
+    try { await ensureEngine(prog); prog.textContent = "¡Listo! Ya puedo pensar 🎂"; prog.classList.remove("typing"); }
+    catch (e) { prog.remove(); add("No he podido cargar la IA 😕 Sigo en modo básico.", "bot"); aiMode = false; reflectAi(); }
+  });
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const q = input.value.trim(); if (!q) return;
     input.value = ""; add(q, "me");
-    const typing = add("escribiendo…", "bot typing");
-    let ans;
-    try { ans = (typeof window.casaQuery === "function") ? await window.casaQuery(q) : "No tengo acceso a los datos ahora mismo."; }
-    catch (err) { ans = "Uy, algo ha fallado 😕"; }
-    typing.remove(); add(ans, "bot");
+    // dato exacto por reglas primero (números siempre fiables)
+    let exact = null;
+    try { exact = (typeof window.casaQuery === "function") ? await window.casaQuery(q) : null; } catch (e) {}
+    if (exact && exact !== window.CASA_HELP) { add(exact, "bot"); return; }
+    if (aiMode) { await askLLM(q); return; }
+    add(exact || "No tengo acceso a los datos ahora mismo.", "bot");
   });
+
   el.querySelector(".cc-close").addEventListener("click", () => { el.hidden = true; });
+  reflectAi();
+
   return {
     open() {
       el.hidden = false;
-      if (!greeted) { greeted = true; add("¡Hola! Soy la tarta 🎂 Pregúntame por la caja de un día (\"¿cuánto se hizo ayer?\"), el total o la media de un mes, el mejor día… lo que quieras.", "bot"); }
+      if (!greeted) {
+        greeted = true;
+        add("¡Hola! Soy la tarta 🎂 Pregúntame por la caja de un día (\"¿cuánto se hizo ayer?\"), el total o la media de un mes, el mejor día… Y si le das a 🧠 IA, pienso de verdad (en tu propio navegador).", "bot");
+        if (navigator.gpu) { try { if (localStorage.getItem(AI_KEY) === "on") aiBtn.click(); } catch (e) {} }
+      }
       input.focus();
     },
     close() { el.hidden = true; },
