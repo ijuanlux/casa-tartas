@@ -186,6 +186,18 @@ body.login-mode, body.login-mode * { cursor: none; }
 .charts-grid { max-width: 1100px; margin: 0 auto 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 4px; }
 .chart-card { margin: 0; }
 .chart-card h3 { margin: 0 0 12px; font-family: 'Fredoka', sans-serif; font-size: 1.05rem; }
+
+/* arrastrar/reordenar (tipo Zabbix) */
+.dash-tip { max-width: 1100px; margin: 0 auto 12px; padding: 0 4px; font-size: 0.85rem; color: var(--ink-soft); }
+.link-btn { background: none; border: none; color: var(--accent); font: inherit; text-decoration: underline; padding: 0; cursor: pointer; }
+.drag-handle { cursor: grab; user-select: none; -webkit-user-select: none; touch-action: none; }
+.drag-handle:active { cursor: grabbing; }
+.grip { color: var(--ink-soft); margin-right: 4px; letter-spacing: -2px; }
+.kpi { cursor: grab; touch-action: none; }
+.kpi:active { cursor: grabbing; }
+.widget-ghost { opacity: 0.35; }
+.widget-chosen { box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
+.widget-drag { transform: rotate(1.5deg) scale(1.02); }
 .chart-wide { grid-column: 1 / -1; }
 .chart-box { position: relative; height: 260px; }
 .chart-wide .chart-box { height: 300px; }

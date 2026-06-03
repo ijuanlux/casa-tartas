@@ -286,35 +286,36 @@
       </div>
       <div id="stats-empty" class="card" hidden><p class="hint">Aún no hay cierres para sacar estadísticas. ¡Mete alguno y vuelve!</p></div>
       <div id="stats-content">
-        <div class="kpi-grid">
-          <div class="kpi"><span class="kpi-label">Total caja</span><span class="kpi-val" id="kpi-total">—</span></div>
-          <div class="kpi"><span class="kpi-label">Cierres</span><span class="kpi-val" id="kpi-count">—</span></div>
-          <div class="kpi"><span class="kpi-label">Media por cierre</span><span class="kpi-val" id="kpi-avg">—</span></div>
-          <div class="kpi"><span class="kpi-label">Mejor día</span><span class="kpi-val" id="kpi-best">—</span><span class="kpi-sub" id="kpi-best-date"></span></div>
+        <p class="dash-tip">✋ Arrastra las tarjetas por su título (⠿) para reordenar el panel a tu gusto. <button type="button" id="dash-reset" class="link-btn">Restablecer</button></p>
+        <div class="kpi-grid" id="kpi-grid">
+          <div class="kpi" data-widget="total"><span class="kpi-label">Total caja</span><span class="kpi-val" id="kpi-total">—</span></div>
+          <div class="kpi" data-widget="count"><span class="kpi-label">Cierres</span><span class="kpi-val" id="kpi-count">—</span></div>
+          <div class="kpi" data-widget="avg"><span class="kpi-label">Media por cierre</span><span class="kpi-val" id="kpi-avg">—</span></div>
+          <div class="kpi" data-widget="best"><span class="kpi-label">Mejor día</span><span class="kpi-val" id="kpi-best">—</span><span class="kpi-sub" id="kpi-best-date"></span></div>
         </div>
-        <div class="charts-grid">
-          <div class="card chart-card">
-            <h3>Composición de la caja</h3>
+        <div class="charts-grid" id="charts-grid">
+          <div class="card chart-card" data-widget="composicion">
+            <h3 class="drag-handle"><span class="grip">⠿</span> Composición de la caja</h3>
             <div class="chart-box"><canvas id="chart-composicion"></canvas></div>
           </div>
-          <div class="card chart-card">
-            <h3>Caja por local</h3>
+          <div class="card chart-card" data-widget="locales">
+            <h3 class="drag-handle"><span class="grip">⠿</span> Caja por local</h3>
             <div class="chart-box"><canvas id="chart-locales"></canvas></div>
           </div>
-          <div class="card chart-card chart-wide">
-            <h3>Caja por mes <span class="chart-hint">(toca una barra para ver ese mes)</span></h3>
+          <div class="card chart-card chart-wide" data-widget="meses">
+            <h3 class="drag-handle"><span class="grip">⠿</span> Caja por mes <span class="chart-hint">(toca una barra para ver ese mes)</span></h3>
             <div class="chart-box"><canvas id="chart-meses"></canvas></div>
           </div>
-          <div class="card chart-card chart-wide">
-            <h3 id="evo-title">Evolución de la caja</h3>
+          <div class="card chart-card chart-wide" data-widget="evolucion">
+            <h3 class="drag-handle"><span class="grip">⠿</span> <span id="evo-title">Evolución de la caja</span></h3>
             <div class="chart-box"><canvas id="chart-evolucion"></canvas></div>
           </div>
-          <div class="card chart-card">
-            <h3>Tarjeta vs Efectivo</h3>
+          <div class="card chart-card" data-widget="pago">
+            <h3 class="drag-handle"><span class="grip">⠿</span> Tarjeta vs Efectivo</h3>
             <div class="chart-box"><canvas id="chart-pago"></canvas></div>
           </div>
-          <div class="card chart-card">
-            <h3>Gastos: suministros y banco</h3>
+          <div class="card chart-card" data-widget="gastos">
+            <h3 class="drag-handle"><span class="grip">⠿</span> Gastos: suministros y banco</h3>
             <div class="chart-box"><canvas id="chart-gastos"></canvas></div>
           </div>
         </div>
@@ -371,6 +372,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <script src="./config.js"></script>
   <script src="./app.js" type="module"></script>
   <script src="./pepino.js" type="module"></script>

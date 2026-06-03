@@ -580,6 +580,50 @@ function initMascot() {
 }
 
 /* ============================================================
+   9. DASHBOARD ARRASTRABLE (tipo Zabbix, con SortableJS)
+   ============================================================ */
+const DASH_KEY = "casa_dash_order_";
+function dashSaveOrder(grid, key) {
+  const order = [...grid.children].map((c) => c.dataset.widget).filter(Boolean);
+  try { localStorage.setItem(DASH_KEY + key, JSON.stringify(order)); } catch (e) {}
+}
+function dashApplyOrder(grid, key) {
+  let order = null;
+  try { order = JSON.parse(localStorage.getItem(DASH_KEY + key) || "null"); } catch (e) {}
+  if (!Array.isArray(order)) return;
+  order.forEach((w) => {
+    const el = grid.querySelector(`[data-widget="${w}"]`);
+    if (el) grid.appendChild(el);   // recoloca en el orden guardado
+  });
+}
+function initDashboard() {
+  if (typeof Sortable === "undefined") return;
+  const grids = [
+    { el: $("#charts-grid"), key: "charts", handle: ".drag-handle" },
+    { el: $("#kpi-grid"), key: "kpi", handle: null },
+  ];
+  grids.forEach(({ el, key, handle }) => {
+    if (!el) return;
+    dashApplyOrder(el, key);
+    Sortable.create(el, {
+      animation: 180,
+      handle: handle || undefined,
+      draggable: handle ? ".chart-card" : ".kpi",
+      ghostClass: "widget-ghost",
+      chosenClass: "widget-chosen",
+      dragClass: "widget-drag",
+      forceFallback: true,          // arrastre consistente en móvil y escritorio
+      fallbackTolerance: 4,
+      onEnd: () => dashSaveOrder(el, key),
+    });
+  });
+  $("#dash-reset")?.addEventListener("click", () => {
+    grids.forEach(({ key }) => { try { localStorage.removeItem(DASH_KEY + key); } catch (e) {} });
+    location.reload();
+  });
+}
+
+/* ============================================================
    BOOT
    ============================================================ */
 function boot() {
@@ -589,6 +633,7 @@ function boot() {
   observeLogin();
   initGame();
   initMascot();
+  initDashboard();
   initLoginBg();
   window.addEventListener("casa:login-success", loginTransition);
 }
