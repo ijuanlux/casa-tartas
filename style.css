@@ -176,52 +176,58 @@ body.login-mode, body.login-mode * { cursor: none; }
 .stats-range select:disabled { opacity: .5; }
 .chart-hint { font-family: -apple-system, sans-serif; font-weight: 400; font-size: 0.78rem; color: var(--ink-soft); }
 
-.kpi-grid { max-width: 1100px; margin: 16px auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0 4px; }
-.kpi { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; display: flex; flex-direction: column; gap: 4px; }
-.kpi-label { font-size: 0.82rem; color: var(--ink-soft); }
-.kpi-val { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 1.5rem; color: var(--accent-dark); }
-.kpi-sub { font-size: 0.78rem; color: var(--ink-soft); }
+.kpi-grid { max-width: 1180px; margin: 16px auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0 4px; }
+.kpi {
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 15px 16px 15px 20px;
+  display: flex; flex-direction: column; gap: 2px; position: relative; overflow: hidden; border: 1px solid var(--line);
+}
+.kpi::before { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 4px; background: linear-gradient(180deg, var(--accent), var(--accent-dark)); }
+.kpi-ico { font-size: 1.05rem; }
+.kpi-label { font-size: 0.8rem; color: var(--ink-soft); }
+.kpi-val { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 1.5rem; color: var(--accent-dark); line-height: 1.1; }
+.kpi-sub { font-size: 0.76rem; color: var(--ink-soft); }
+.kpi-delta { font-size: 0.76rem; font-weight: 600; margin-top: 2px; }
+.kpi-delta.up { color: var(--ok); }
+.kpi-delta.down { color: var(--err); }
+.stats-clear { padding: 6px 12px; align-self: flex-end; }
 @media (max-width: 720px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
 
-.charts-grid { max-width: 1100px; margin: 0 auto 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 4px; }
-.chart-card { margin: 0; position: relative; }
-.chart-head { margin-bottom: 12px; }
-.chart-head h3 { margin: 0; font-family: 'Fredoka', sans-serif; font-size: 1.05rem; }
-
-/* tirador de esquina para estirar */
-.resize-handle {
-  position: absolute; right: 5px; bottom: 5px; width: 20px; height: 20px;
-  cursor: nwse-resize; touch-action: none; opacity: 0.35; border-radius: 0 0 8px 0;
-  background:
-    linear-gradient(135deg, transparent 0 45%, var(--ink-soft) 45% 55%, transparent 55% 70%, var(--ink-soft) 70% 80%, transparent 80%);
-  transition: opacity .15s;
-}
-.resize-handle:hover { opacity: 0.9; }
-.chart-card.resizing { box-shadow: 0 10px 30px rgba(0,0,0,0.22); user-select: none; }
-.chart-card.resizing .chart-hint { visibility: hidden; }
-
-/* arrastrar/reordenar (tipo Zabbix) */
-.dash-tip { max-width: 1100px; margin: 0 auto 12px; padding: 0 4px; font-size: 0.85rem; color: var(--ink-soft); }
+.dash-tip { max-width: 1180px; margin: 0 auto 8px; padding: 0 4px; font-size: 0.85rem; color: var(--ink-soft); }
 .link-btn { background: none; border: none; color: var(--accent); font: inherit; text-decoration: underline; padding: 0; cursor: pointer; }
+
+/* ====== Dashboard GridStack (look Grafana-pro) ====== */
+.grid-stack { max-width: 1180px; margin: 0 auto 28px; }
+.grid-stack-item-content { border-radius: var(--radius); overflow: visible; }
+.chart-card {
+  margin: 0; height: 100%; width: 100%; display: flex; flex-direction: column;
+  padding: 14px 16px 12px; position: relative; overflow: hidden; border: 1px solid var(--line);
+}
+.chart-card::after {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--accent), #f4c430, var(--accent)); opacity: .85;
+}
+.chart-head { margin-bottom: 8px; flex-shrink: 0; }
+.chart-head h3 { margin: 0; font-family: 'Fredoka', sans-serif; font-size: 1rem; display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+.chart-box { position: relative; flex: 1; min-height: 0; }
 .drag-handle { cursor: grab; user-select: none; -webkit-user-select: none; touch-action: none; }
 .drag-handle:active { cursor: grabbing; }
-.grip { color: var(--ink-soft); margin-right: 4px; letter-spacing: -2px; }
-.kpi { cursor: grab; touch-action: none; }
-.kpi:active { cursor: grabbing; }
-.widget-ghost { opacity: 0.35; }
-.widget-chosen { box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
-.widget-drag { transform: rotate(1.5deg) scale(1.02); }
-.chart-box { position: relative; height: 260px; }
-.chart-card.w2 { grid-column: span 2; }
-.chart-card.h2 .chart-box { height: 400px; }
-@media (max-width: 720px) {
-  .charts-grid { grid-template-columns: 1fr; }
-  .chart-card.w2 { grid-column: auto; }
+.grip { color: var(--ink-soft); margin-right: 6px; letter-spacing: -2px; }
+
+/* GridStack: placeholder y handles al estilo de la app */
+.grid-stack > .grid-stack-item > .grid-stack-item-content { box-shadow: none; }
+.grid-stack .grid-stack-placeholder > .placeholder-content {
+  border: 2px dashed var(--accent); border-radius: var(--radius); background: rgba(198,75,108,.10);
 }
+.grid-stack-item.ui-draggable-dragging .chart-card { box-shadow: 0 18px 50px rgba(0,0,0,.3); transform: scale(1.01); }
 
 /* ====== Mascota tarta deprimida ====== */
 .cake-mascot { position: fixed; bottom: 16px; left: 16px; z-index: 60; width: 96px; pointer-events: none; will-change: transform; }
 .cake-mascot .cm-cake { width: 100%; height: auto; display: block; filter: drop-shadow(0 8px 14px rgba(0,0,0,0.25)); }
+/* patitas andando */
+.cm-leg { transform-box: fill-box; }
+.cake-mascot.walking .cm-leg-l { animation: cm-step 0.46s ease-in-out infinite; }
+.cake-mascot.walking .cm-leg-r { animation: cm-step 0.46s ease-in-out infinite 0.23s; }
+@keyframes cm-step { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3.5px); } }
 .cake-mascot .cm-bubble {
   position: absolute; bottom: 100%; left: 50%; transform: translate(-50%, -8px);
   background: var(--card); color: var(--ink); border: 1px solid var(--line);
@@ -269,6 +275,11 @@ body.login-mode, body.login-mode * { cursor: none; }
 .cc-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
 .cc-form input { flex: 1; margin: 0; }
 .cc-form button { background: var(--accent); color: #fff; border: none; border-radius: 10px; width: 44px; font-size: 1.1rem; }
+
+/* ====== Confeti (bonus récord) ====== */
+.confetti-layer { position: fixed; inset: 0; pointer-events: none; z-index: 950; overflow: hidden; }
+.confetti-bit { position: absolute; top: -40px; animation: confetti-fall linear forwards; will-change: transform; }
+@keyframes confetti-fall { to { transform: translateY(112vh) rotate(var(--rot)); } }
 
 /* ============ CARDS / GENERAL ============ */
 .card {

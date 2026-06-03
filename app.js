@@ -584,17 +584,35 @@ function renderStats() {
   $("#stats-content").hidden = !has;
   if (!has) { destroyCharts(); return; }
 
-  // filtros: mes tiene prioridad sobre periodo
+  // filtros: calendario > mes > periodo
+  const from = $("#stats-from").value, to = $("#stats-to").value;
   const month = $("#stats-month").value;
   const days = Number($("#stats-range").value || 0);
-  const rangeSel = $("#stats-range");
-  rangeSel.disabled = !!month;            // si hay mes elegido, el periodo no aplica
-  let scoped;
-  if (month) {
+  const hasRange = !!(from || to);
+  $("#stats-range").disabled = hasRange || !!month;
+  $("#stats-month").disabled = hasRange;
+  const isoBack = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);
+
+  let scoped, prev = null;
+  if (hasRange) {
+    const f = from || "0000-01-01", t = to || "9999-12-31";
+    scoped = statsAll.filter((r) => r.fecha >= f && r.fecha <= t);
+    if (from && to) {
+      const span = Math.round((new Date(to) - new Date(from)) / 86400000) + 1;
+      const pf = new Date(new Date(from) - span * 86400000).toISOString().slice(0, 10);
+      const pt = new Date(new Date(from) - 86400000).toISOString().slice(0, 10);
+      prev = statsAll.filter((r) => r.fecha >= pf && r.fecha <= pt);
+    }
+  } else if (month) {
     scoped = statsAll.filter((r) => r.fecha.slice(0, 7) === month);
+    const [yy, mm] = month.split("-").map(Number);
+    const pd = new Date(yy, mm - 2, 1), pkey = `${pd.getFullYear()}-${String(pd.getMonth() + 1).padStart(2, "0")}`;
+    prev = statsAll.filter((r) => r.fecha.slice(0, 7) === pkey);
   } else if (days > 0) {
-    const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-    scoped = statsAll.filter((r) => r.fecha >= from);
+    const f = isoBack(days);
+    scoped = statsAll.filter((r) => r.fecha >= f);
+    const pf = isoBack(days * 2);
+    prev = statsAll.filter((r) => r.fecha >= pf && r.fecha < f);
   } else {
     scoped = statsAll;
   }
@@ -614,53 +632,122 @@ function renderStats() {
   scoped.forEach((r) => { if (statsCaja(r) > statsCaja(best)) best = r; });
   $("#kpi-best").textContent = fmtMoney(statsCaja(best));
   $("#kpi-best-date").textContent = best.fecha + (best.locales?.nombre ? " · " + best.locales.nombre : "");
-  $("#evo-title").textContent = month ? "Evolución diaria · " + mesLabel(month) : "Evolución de la caja";
+  $("#evo-title").textContent = (month || hasRange) ? "Evolución diaria" + (month ? " · " + mesLabel(month) : "") : "Evolución de la caja";
 
+  // BONUS: comparativa vs periodo anterior (▲/▼ %)
+  const deltaEl = $("#kpi-delta");
+  if (deltaEl) {
+    const prevTotal = prev ? statsSum(prev, statsCaja) : 0;
+    if (prev && prev.length && prevTotal > 0) {
+      const pct = Math.round((totalCaja - prevTotal) / prevTotal * 100);
+      const up = pct >= 0;
+      deltaEl.textContent = `${up ? "▲" : "▼"} ${Math.abs(pct)}% vs periodo anterior`;
+      deltaEl.className = "kpi-delta " + (up ? "up" : "down");
+      deltaEl.hidden = false;
+    } else { deltaEl.hidden = true; }
+  }
+
+  const ink = cssVar("--ink") || "#3b2a1f";
+  const inkSoft = cssVar("--ink-soft") || "#7a5b46";
   const line = cssVar("--line") || "#e7d3b8";
   const card = cssVar("--card") || "#fff";
-  Chart.defaults.color = cssVar("--ink") || "#3b2a1f";
-  if (Chart.defaults.font) Chart.defaults.font.family = "Fredoka, sans-serif";
-  const PINK = "#c64b6c", GOLD = "#f4c430", CREAM = "#f0c896", BLUE = "#4f9bd6", PURPLE = "#9b7ed1", GREEN = "#3aa76d";
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  const gridc = dark ? "rgba(255,255,255,.08)" : "rgba(0,0,0,.06)";
+  const PINK = "#c64b6c", GOLD = "#f4c430", CREAM = "#e9b06a", BLUE = "#4f9bd6", PURPLE = "#9b7ed1", GREEN = "#3aa76d", TEAL = "#33b1a6";
+
+  // ---- estética global "pro" ----
+  Chart.defaults.color = inkSoft;
+  Chart.defaults.font.family = "Fredoka, sans-serif";
+  Chart.defaults.animation = { duration: 900, easing: "easeOutQuart" };
+  Object.assign(Chart.defaults.plugins.tooltip, {
+    backgroundColor: dark ? "rgba(10,6,12,.92)" : "rgba(40,24,34,.92)",
+    padding: 12, cornerRadius: 12, titleColor: "#fff", bodyColor: "#fff",
+    titleFont: { family: "Fredoka", weight: "700", size: 13 }, bodyFont: { family: "Fredoka", size: 13 },
+    boxPadding: 6, usePointStyle: true, borderColor: "rgba(255,255,255,.12)", borderWidth: 1,
+  });
+  Chart.defaults.plugins.legend.labels = { usePointStyle: true, pointStyle: "circle", padding: 14, boxWidth: 8, boxHeight: 8, font: { family: "Fredoka", size: 12 } };
+
+  // helpers de degradado + plugins
+  const vgrad = (chart, c1, c2) => {
+    const a = chart.chartArea; if (!a) return c1;
+    const g = chart.ctx.createLinearGradient(0, a.top, 0, a.bottom);
+    g.addColorStop(0, c1); g.addColorStop(1, c2); return g;
+  };
+  const hexA = (hex, al) => { const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${al})`; };
+  const centerText = {
+    id: "centerText",
+    afterDraw(ch) {
+      const t = ch.config.options.plugins.centerText; if (!t || !ch.chartArea) return;
+      const { ctx, chartArea: { left, right, top, bottom } } = ch;
+      const x = (left + right) / 2, y = (top + bottom) / 2;
+      ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.font = "700 20px Fredoka, sans-serif"; ctx.fillStyle = ink; ctx.fillText(t.value, x, y - 7);
+      ctx.font = "600 11px Fredoka, sans-serif"; ctx.fillStyle = inkSoft; ctx.fillText(t.label.toUpperCase(), x, y + 13);
+      ctx.restore();
+    },
+  };
+  const glow = {
+    id: "glow",
+    beforeDatasetsDraw(ch) { if (!ch.config.options.plugins.glow) return; const c = ch.ctx; c.save(); c.shadowColor = ch.config.options.plugins.glow; c.shadowBlur = 14; c.shadowOffsetY = 5; },
+    afterDatasetsDraw(ch) { if (ch.config.options.plugins.glow) ch.ctx.restore(); },
+  };
+  const pctTip = (ctx) => {
+    const arr = ctx.dataset.data, tot = arr.reduce((s, v) => s + Number(v || 0), 0);
+    const v = Number(ctx.parsed || 0);
+    return ` ${ctx.label}: ${fmtMoney(v)} (${tot ? Math.round(v / tot * 100) : 0}%)`;
+  };
+  const moneyTip = (ctx) => ` ${fmtMoney(ctx.parsed.y ?? ctx.parsed)}`;
+  const yMoney = { beginAtZero: true, grid: { color: gridc, drawBorder: false }, ticks: { callback: (v) => (v >= 1000 ? (v / 1000) + "k" : v) + "€" } };
+  const xClean = { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } };
 
   destroyCharts();
 
   charts.comp = new Chart($("#chart-composicion"), {
     type: "doughnut",
-    data: { labels: ["Facturas", "Tarjetas", "Efectivo"], datasets: [{ data: [totalFact, totalTarj, totalEfec], backgroundColor: [PINK, BLUE, CREAM], borderWidth: 2, borderColor: card }] },
-    options: { plugins: { legend: { position: "bottom" } }, cutout: "58%" },
+    data: { labels: ["Facturas", "Tarjetas", "Efectivo"], datasets: [{ data: [totalFact, totalTarj, totalEfec], backgroundColor: [PINK, BLUE, CREAM], borderColor: card, borderWidth: 3, borderRadius: 6, hoverOffset: 10, spacing: 2 }] },
+    options: { maintainAspectRatio: false, cutout: "70%", plugins: { legend: { position: "bottom" }, centerText: { value: fmtMoney(totalCaja), label: "caja" }, tooltip: { callbacks: { label: pctTip } } } },
+    plugins: [centerText],
   });
 
   const byLocal = {};
   scoped.forEach((r) => { const n = r.locales?.nombre || ("Local " + r.local_id); byLocal[n] = (byLocal[n] || 0) + statsCaja(r); });
   const localNames = Object.keys(byLocal);
   charts.loc = new Chart($("#chart-locales"), {
-    type: "pie",
-    data: { labels: localNames, datasets: [{ data: localNames.map((n) => byLocal[n]), backgroundColor: [PINK, GOLD, BLUE, PURPLE, GREEN, CREAM], borderWidth: 2, borderColor: card }] },
-    options: { plugins: { legend: { position: "bottom" } } },
+    type: "doughnut",
+    data: { labels: localNames, datasets: [{ data: localNames.map((n) => byLocal[n]), backgroundColor: [PINK, GOLD, BLUE, PURPLE, GREEN, TEAL, CREAM], borderColor: card, borderWidth: 3, borderRadius: 6, hoverOffset: 10, spacing: 2 }] },
+    options: { maintainAspectRatio: false, cutout: "62%", plugins: { legend: { position: "bottom" }, centerText: { value: String(localNames.length), label: localNames.length === 1 ? "local" : "locales" }, tooltip: { callbacks: { label: pctTip } } } },
+    plugins: [centerText],
   });
 
-  // Caja por MES (siempre todos los meses; barra clicable para hacer drill-in)
+  // Caja por MES (siempre todos los meses; barra clicable para drill-in)
   const byMonth = {};
   statsAll.forEach((r) => { const m = r.fecha.slice(0, 7); byMonth[m] = (byMonth[m] || 0) + statsCaja(r); });
   const months = Object.keys(byMonth).sort();
   charts.meses = new Chart($("#chart-meses"), {
     type: "bar",
     data: {
-      labels: months.map(mesLabel),
+      labels: months.map((m) => mesLabel(m).replace(/ de \d+| \d+/, "")),
       datasets: [{
-        data: months.map((m) => byMonth[m]), borderRadius: 8,
-        backgroundColor: months.map((m) => (m === month ? PINK : "rgba(198,75,108,.45)")),
+        data: months.map((m) => byMonth[m]), borderRadius: 8, borderSkipped: false, maxBarThickness: 60,
+        backgroundColor: (c) => (months[c.dataIndex] === month ? vgrad(c.chart, GOLD, "#e0890c") : vgrad(c.chart, hexA(PINK, 0.95), hexA(PINK, 0.35))),
+        hoverBackgroundColor: (c) => vgrad(c.chart, GOLD, "#e0890c"),
       }],
     },
     options: {
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, grid: { color: line } }, x: { grid: { display: false } } },
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { title: (t) => mesLabel(months[t[0].dataIndex]), label: moneyTip } } },
+      scales: { y: yMoney, x: xClean },
       onClick: (evt, els) => {
         if (!els.length) return;
         const m = months[els[0].index];
         const sel = $("#stats-month");
-        sel.value = (sel.value === m ? "" : m);   // re-toca = quitar filtro
+        const selecting = sel.value !== m;
+        sel.value = selecting ? m : "";
         renderStats();
+        if (selecting) {
+          const bestMonth = months.reduce((a, b) => (byMonth[b] > byMonth[a] ? b : a), months[0]);
+          if (m === bestMonth && typeof window.casaConfetti === "function") window.casaConfetti();
+        }
       },
     },
   });
@@ -670,24 +757,110 @@ function renderStats() {
   const dates = Object.keys(byDate).sort();
   charts.evo = new Chart($("#chart-evolucion"), {
     type: "line",
-    data: { labels: dates, datasets: [{ label: "Caja", data: dates.map((d) => byDate[d]), borderColor: PINK, backgroundColor: "rgba(198,75,108,.15)", fill: true, tension: 0.35, pointRadius: 3 }] },
-    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: line } }, x: { grid: { display: false } } } },
+    data: { labels: dates.map((d) => d.slice(5)), datasets: [{ label: "Caja", data: dates.map((d) => byDate[d]), borderColor: PINK, borderWidth: 3, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 6, pointHoverBackgroundColor: PINK, pointHoverBorderColor: "#fff", pointHoverBorderWidth: 2, backgroundColor: (c) => vgrad(c.chart, hexA(PINK, 0.35), hexA(PINK, 0)) }] },
+    options: { maintainAspectRatio: false, interaction: { intersect: false, mode: "index" }, plugins: { legend: { display: false }, glow: hexA(PINK, 0.5), tooltip: { callbacks: { label: moneyTip } } }, scales: { y: yMoney, x: xClean } },
+    plugins: [glow],
   });
 
   charts.pago = new Chart($("#chart-pago"), {
     type: "doughnut",
-    data: { labels: ["Tarjetas", "Efectivo"], datasets: [{ data: [totalTarj, totalEfec], backgroundColor: [BLUE, GOLD], borderWidth: 2, borderColor: card }] },
-    options: { plugins: { legend: { position: "bottom" } }, cutout: "58%" },
+    data: { labels: ["Tarjetas", "Efectivo"], datasets: [{ data: [totalTarj, totalEfec], backgroundColor: [BLUE, GOLD], borderColor: card, borderWidth: 3, borderRadius: 6, hoverOffset: 10, spacing: 2 }] },
+    options: { maintainAspectRatio: false, cutout: "70%", plugins: { legend: { position: "bottom" }, centerText: { value: fmtMoney(totalTarj + totalEfec), label: "cobrado" }, tooltip: { callbacks: { label: pctTip } } } },
+    plugins: [centerText],
   });
 
   charts.gastos = new Chart($("#chart-gastos"), {
     type: "bar",
-    data: { labels: ["Suministros", "Pagos banco"], datasets: [{ data: [totalSumin, totalBanco], backgroundColor: [PURPLE, GREEN], borderRadius: 8 }] },
-    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: line } }, x: { grid: { display: false } } } },
+    data: { labels: ["Suministros", "Pagos banco"], datasets: [{ data: [totalSumin, totalBanco], borderRadius: 8, borderSkipped: false, maxBarThickness: 90, backgroundColor: (c) => [vgrad(c.chart, PURPLE, hexA(PURPLE, 0.4)), vgrad(c.chart, GREEN, hexA(GREEN, 0.4))][c.dataIndex] }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: moneyTip } } }, scales: { y: yMoney, x: xClean } },
   });
 }
 $("#stats-range")?.addEventListener("change", renderStats);
 $("#stats-month")?.addEventListener("change", renderStats);
+$("#stats-from")?.addEventListener("change", renderStats);
+$("#stats-to")?.addEventListener("change", renderStats);
+$("#stats-clear")?.addEventListener("click", () => {
+  $("#stats-from").value = ""; $("#stats-to").value = "";
+  $("#stats-range").value = "0"; $("#stats-month").value = "";
+  renderStats();
+});
+
+// ===== Exportar informe a PDF (con logo y gráficos del periodo elegido) =====
+function statsPeriodLabel() {
+  const from = $("#stats-from").value, to = $("#stats-to").value, month = $("#stats-month").value, days = Number($("#stats-range").value || 0);
+  if (from || to) return "Del " + (from || "inicio") + " al " + (to || "hoy");
+  if (month) return mesLabel(month);
+  if (days > 0) return "Últimos " + days + " días";
+  return "Histórico completo";
+}
+function hexToRgb(h) { const n = parseInt((h || "#000").replace("#", ""), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function fitBox(w, h, maxW, maxH) { const s = Math.min(maxW / w, maxH / h); return { w: w * s, h: h * s }; }
+function imgToDataURL(url) {
+  return new Promise((res, rej) => {
+    const img = new Image(); img.crossOrigin = "anonymous";
+    img.onload = () => { const c = document.createElement("canvas"); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext("2d").drawImage(img, 0, 0); res({ dataURL: c.toDataURL("image/png"), w: img.naturalWidth, h: img.naturalHeight }); };
+    img.onerror = rej; img.src = url;
+  });
+}
+
+async function exportStatsPDF() {
+  if (!window.jspdf || !window.jspdf.jsPDF) { alert("No se pudo cargar el generador de PDF."); return; }
+  if (!charts.comp) { alert("Abre las estadísticas un momento y vuelve a intentarlo."); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
+  const accent = hexToRgb(cssVar("--accent")), ink = hexToRgb(cssVar("--ink")), soft = hexToRgb(cssVar("--ink-soft"));
+  const bg = hexToRgb(cssVar("--bg")), cardC = hexToRgb(cssVar("--card"));
+  const pageBg = () => { doc.setFillColor(...bg); doc.rect(0, 0, W, H, "F"); };
+
+  pageBg();
+  // cabecera
+  doc.setFillColor(...accent); doc.rect(0, 0, W, 96, "F");
+  try {
+    const logo = await imgToDataURL("./logo-casa-tartas.png");
+    doc.setFillColor(255, 255, 255); doc.roundedRect(M - 6, 22, 156, 52, 8, 8, "F");
+    const f = fitBox(logo.w, logo.h, 140, 40);
+    doc.addImage(logo.dataURL, "PNG", M - 6 + (156 - f.w) / 2, 22 + (52 - f.h) / 2, f.w, f.h);
+  } catch (e) {}
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.text("Informe de caja", W - M, 44, { align: "right" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.text(statsPeriodLabel(), W - M, 64, { align: "right" });
+  const hoy = new Date().toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+  doc.text("Generado el " + hoy, W - M, 80, { align: "right" });
+
+  let y = 120;
+  const kpis = [["Total caja", $("#kpi-total").textContent], ["Cierres", $("#kpi-count").textContent], ["Media/cierre", $("#kpi-avg").textContent], ["Mejor día", $("#kpi-best").textContent]];
+  const kw = (W - 2 * M - 30) / 4;
+  kpis.forEach((k, i) => {
+    const x = M + i * (kw + 10);
+    doc.setFillColor(...cardC); doc.roundedRect(x, y, kw, 56, 8, 8, "F");
+    doc.setTextColor(...soft); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text(k[0].toUpperCase(), x + 10, y + 18);
+    doc.setTextColor(...accent); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(String(k[1]), x + 10, y + 40);
+  });
+  y += 56 + 16;
+
+  const addChart = (chart, title, h) => {
+    if (!chart) return;
+    if (y + h + 34 > H - 36) { doc.addPage(); pageBg(); y = 40; }
+    doc.setFillColor(...cardC); doc.roundedRect(M, y, W - 2 * M, h + 32, 8, 8, "F");
+    doc.setTextColor(...ink); doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.text(title, M + 12, y + 20);
+    try {
+      const img = chart.toBase64Image("image/png", 1);
+      const f = fitBox(chart.width || 600, chart.height || 300, W - 2 * M - 24, h);
+      doc.addImage(img, "PNG", M + (W - 2 * M - f.w) / 2, y + 26, f.w, f.h);
+    } catch (e) {}
+    y += h + 32 + 14;
+  };
+  addChart(charts.meses, "Caja por mes", 170);
+  addChart(charts.evo, $("#evo-title").textContent || "Evolución de la caja", 160);
+  addChart(charts.comp, "Composición de la caja", 200);
+  addChart(charts.pago, "Tarjeta vs Efectivo", 200);
+  addChart(charts.loc, "Caja por local", 200);
+  addChart(charts.gastos, "Gastos: suministros y banco", 150);
+
+  doc.save("informe-casa-tartas.pdf");
+}
+$("#stats-pdf")?.addEventListener("click", exportStatsPDF);
 
 // ===== Asistente "Tarta" (IA básica sin claves: entiende y consulta los datos) =====
 const MESES = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 };

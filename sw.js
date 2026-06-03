@@ -2,7 +2,7 @@
 // Cache-first para estáticos, network-only para Supabase (datos frescos).
 // Sube CACHE_VERSION cuando cambies HTML/CSS/JS para forzar refresh.
 
-const CACHE_VERSION = "v21";
+const CACHE_VERSION = "v22";
 const CACHE_NAME = `casa-tartas-${CACHE_VERSION}`;
 
 const ASSETS = [
@@ -20,7 +20,9 @@ const ASSETS = [
   "./favicon-32.png",
   "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2",
   "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js",
-  "https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"
+  "https://cdn.jsdelivr.net/npm/gridstack@11.5.0/dist/gridstack-all.js",
+  "https://cdn.jsdelivr.net/npm/gridstack@11.5.0/dist/gridstack.min.css",
+  "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"
 ];
 
 self.addEventListener("install", (event) => {

@@ -664,7 +664,11 @@ function buildMascot() {
   el.innerHTML = `
     <div class="cm-bubble"></div>
     <svg class="cm-cake" viewBox="0 0 100 104" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <ellipse cx="50" cy="97" rx="34" ry="6" fill="rgba(0,0,0,.18)"/>
+      <ellipse cx="50" cy="100" rx="32" ry="5" fill="rgba(0,0,0,.16)"/>
+      <g class="cm-legs">
+        <g class="cm-leg cm-leg-l"><rect x="35" y="84" width="6" height="14" rx="3" fill="#e0a96b"/><ellipse cx="38" cy="99" rx="5.5" ry="2.8" fill="#7a4b2a"/></g>
+        <g class="cm-leg cm-leg-r"><rect x="59" y="84" width="6" height="14" rx="3" fill="#e0a96b"/><ellipse cx="62" cy="99" rx="5.5" ry="2.8" fill="#7a4b2a"/></g>
+      </g>
       <rect x="20" y="56" width="60" height="36" rx="11" fill="#f3d8ac"/>
       <rect x="20" y="72" width="60" height="6" fill="#fff4e2" opacity=".7"/>
       <path d="M20 52 h60 v6 a11 11 0 0 1 -22 0 a11 11 0 0 1 -22 0 a11 11 0 0 1 -16 0 z" fill="#ff7fa6"/>
@@ -730,6 +734,7 @@ function initMascot() {
     active = true;
     if (!el) { el = buildMascot(); bubble = el.querySelector(".cm-bubble"); }
     el.style.display = "block";
+    el.classList.add("walking");
     if (hasGsap) {
       gsap.set(el, { x: 0 });
       bobTween = gsap.to(el.querySelector(".cm-cake"), { y: -8, rotation: 2, duration: 1.3, yoyo: true, repeat: -1, ease: "sine.inOut", transformOrigin: "50% 100%" });
@@ -753,132 +758,79 @@ function initMascot() {
 }
 
 /* ============================================================
-   9. DASHBOARD ARRASTRABLE + REDIMENSIONABLE (tipo Zabbix)
+   9. DASHBOARD GridStack: mover libre + redimensionar + persistencia
    ============================================================ */
-const DASH_ORDER = "casa_dash_order_";
-const DASH_SIZE = "casa_dash_size";       // { widget: { span:1|2, h:px } }
-const DEFAULT_SPAN = { meses: 2, evolucion: 2 };   // estos arrancan anchos
-const MIN_H = 180, MAX_H = 680;
+const DASH_LAYOUT = "casa_dash_layout_v2";
+let casaGrid = null;
 
-function dashLoad(key, fallback) {
-  try { const v = JSON.parse(localStorage.getItem(key) || "null"); return v == null ? fallback : v; }
-  catch (e) { return fallback; }
-}
-function dashSave(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
-
-function resizeCardChart(card) {
-  const cv = card.querySelector("canvas");
-  if (cv && typeof Chart !== "undefined" && Chart.getChart) { const c = Chart.getChart(cv); if (c) c.resize(); }
-}
-function applySize(card) {
-  const span = Number(card.dataset.span || 1);
-  card.classList.toggle("w2", span === 2);
-  const h = Number(card.dataset.h || 0);
-  const box = card.querySelector(".chart-box");
-  if (box) box.style.height = h > 0 ? h + "px" : "";
-  requestAnimationFrame(() => resizeCardChart(card));
-}
-function saveSizes(grid) {
-  const map = {};
-  grid.querySelectorAll(".chart-card").forEach((c) => {
-    map[c.dataset.widget] = { span: Number(c.dataset.span || 1), h: Number(c.dataset.h || 0) };
+function resizeAllCharts(gridEl) {
+  gridEl.querySelectorAll("canvas").forEach((cv) => {
+    if (typeof Chart !== "undefined" && Chart.getChart) { const c = Chart.getChart(cv); if (c) c.resize(); }
   });
-  dashSave(DASH_SIZE, map);
-}
-
-// tirador en la esquina para estirar el widget (ratón + táctil)
-function addResizeHandle(card, grid, onSave) {
-  const handle = document.createElement("div");
-  handle.className = "resize-handle";
-  handle.title = "Estira para cambiar el tamaño";
-  card.appendChild(handle);
-
-  handle.addEventListener("pointerdown", (e) => {
-    e.preventDefault(); e.stopPropagation();
-    card.classList.add("resizing");
-    const startY = e.clientY;
-    const startH = card.querySelector(".chart-box").getBoundingClientRect().height;
-    const cardLeft = card.getBoundingClientRect().left;
-    const gs = getComputedStyle(grid);
-    const cols = gs.gridTemplateColumns.split(" ").filter(Boolean).length;
-    const gap = parseFloat(gs.columnGap) || 16;
-    const colW = (grid.clientWidth - gap * (cols - 1)) / cols;
-    handle.setPointerCapture(e.pointerId);
-
-    const move = (ev) => {
-      // ancho: salta a 2 columnas si estiras más allá de ~1.4 columnas (solo si el grid tiene >1 col)
-      if (cols > 1) {
-        const span = (ev.clientX - cardLeft) > colW * 1.4 ? 2 : 1;
-        if (Number(card.dataset.span || 1) !== span) { card.dataset.span = span; card.classList.toggle("w2", span === 2); }
-      }
-      // alto libre
-      const nh = Math.max(MIN_H, Math.min(MAX_H, startH + (ev.clientY - startY)));
-      card.dataset.h = Math.round(nh);
-      card.querySelector(".chart-box").style.height = Math.round(nh) + "px";
-      resizeCardChart(card);
-    };
-    const up = () => {
-      card.classList.remove("resizing");
-      try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
-      handle.removeEventListener("pointermove", move);
-      handle.removeEventListener("pointerup", up);
-      onSave();
-    };
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("pointerup", up);
-  });
-}
-
-function dashSaveOrder(grid, key) {
-  dashSave(DASH_ORDER + key, [...grid.children].map((c) => c.dataset.widget).filter(Boolean));
-}
-function dashApplyOrder(grid, key) {
-  const order = dashLoad(DASH_ORDER + key, null);
-  if (!Array.isArray(order)) return;
-  order.forEach((w) => { const el = grid.querySelector(`[data-widget="${w}"]`); if (el) grid.appendChild(el); });
 }
 
 function initDashboard() {
-  const charts = $("#charts-grid"), kpis = $("#kpi-grid");
+  const panel = $("#tab-estadisticas");
+  const gridEl = $("#charts-grid");
+  if (!panel || !gridEl || typeof GridStack === "undefined") return;
 
-  // ---- tamaños guardados + tirador de esquina ----
-  if (charts) {
-    const sizeMap = dashLoad(DASH_SIZE, {});
-    charts.querySelectorAll(".chart-card").forEach((card) => {
-      const w = card.dataset.widget;
-      const saved = sizeMap[w];
-      card.dataset.span = saved ? saved.span : (DEFAULT_SPAN[w] || 1);
-      card.dataset.h = saved && saved.h ? saved.h : 0;
-      applySize(card);
-      addResizeHandle(card, charts, () => saveSizes(charts));
-    });
+  function ensureGrid() {
+    if (casaGrid) { casaGrid.onParentResize?.(); requestAnimationFrame(() => resizeAllCharts(gridEl)); return; }
+    casaGrid = GridStack.init({
+      column: 12,
+      cellHeight: 64,
+      margin: 8,
+      float: true,                                   // colocar libremente, sin "gravedad" hacia arriba
+      handle: ".drag-handle",
+      resizable: { handles: "e, se, s, sw, w" },
+      columnOpts: { breakpoints: [{ w: 768, c: 1 }] }, // en móvil, una sola columna
+    }, gridEl);
+
+    // restaurar layout guardado
+    try {
+      const saved = JSON.parse(localStorage.getItem(DASH_LAYOUT) || "null");
+      if (Array.isArray(saved) && saved.length) casaGrid.load(saved);
+    } catch (e) {}
+
+    const save = () => { try { localStorage.setItem(DASH_LAYOUT, JSON.stringify(casaGrid.save(false))); } catch (e) {} };
+    casaGrid.on("change", () => { resizeAllCharts(gridEl); save(); });
+    casaGrid.on("resize", () => resizeAllCharts(gridEl));
+    casaGrid.on("resizestop", () => { resizeAllCharts(gridEl); });
+    requestAnimationFrame(() => resizeAllCharts(gridEl));
   }
 
-  // ---- arrastrar para reordenar ----
-  if (typeof Sortable !== "undefined") {
-    const common = {
-      animation: 150,
-      swapThreshold: 0.6,        // cubrir el 60% del hueco para intercambiar (menos saltos)
-      invertSwap: true,          // dirección de swap más predecible
-      fallbackOnBody: true,      // el "fantasma" sigue al cursor sin saltos del grid
-      forceFallback: true,       // consistente en ratón y táctil
-      fallbackTolerance: 5,
-      delay: 60, delayOnTouchOnly: true,
-      ghostClass: "widget-ghost",
-      chosenClass: "widget-chosen",
-      dragClass: "widget-drag",
-    };
-    if (charts) Sortable.create(charts, { ...common, handle: ".drag-handle", draggable: ".chart-card", filter: ".resize-handle", onEnd: () => dashSaveOrder(charts, "charts") });
-    if (kpis) Sortable.create(kpis, { ...common, draggable: ".kpi", onEnd: () => dashSaveOrder(kpis, "kpi") });
-  }
-  if (charts) dashApplyOrder(charts, "charts");
-  if (kpis) dashApplyOrder(kpis, "kpi");
+  // GridStack mide mal si el contenedor está display:none → inicializa al mostrar la pestaña
+  if (!panel.hidden) ensureGrid();
+  new MutationObserver(() => { if (!panel.hidden) ensureGrid(); })
+    .observe(panel, { attributes: true, attributeFilter: ["hidden"] });
 
   $("#dash-reset")?.addEventListener("click", () => {
-    [DASH_ORDER + "charts", DASH_ORDER + "kpi", DASH_SIZE].forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
+    try { localStorage.removeItem(DASH_LAYOUT); } catch (e) {}
     location.reload();
   });
 }
+
+/* ============================================================
+   BONUS: confeti (sin librería) para celebrar récords
+   ============================================================ */
+window.casaConfetti = function () {
+  const EM = ["🎉", "💸", "🎂", "⭐", "🍒", "🥳"];
+  const layer = document.createElement("div");
+  layer.className = "confetti-layer";
+  document.body.appendChild(layer);
+  for (let i = 0; i < 36; i++) {
+    const s = document.createElement("span");
+    s.className = "confetti-bit";
+    s.textContent = EM[i % EM.length];
+    s.style.left = (Math.random() * 100) + "vw";
+    s.style.fontSize = (14 + Math.random() * 24) + "px";
+    s.style.animationDuration = (1.6 + Math.random() * 1.6) + "s";
+    s.style.animationDelay = (Math.random() * 0.4) + "s";
+    s.style.setProperty("--rot", (Math.random() * 720 - 360) + "deg");
+    layer.appendChild(s);
+  }
+  setTimeout(() => layer.remove(), 3600);
+};
 
 /* ============================================================
    BOOT
