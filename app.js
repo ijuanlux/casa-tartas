@@ -1189,7 +1189,7 @@ async function loadNotas() {
 }
 
 // ===== Visor / editor de fotos =====
-const fEd = { path: null, img: null, strokes: [], drawing: null, draw: false, pendingText: null, color: "#e4263b", size: 6, scale: 1, tx: 0, ty: 0 };
+const fEd = { path: null, img: null, strokes: [], drawing: null, tool: "pan", pendingText: null, color: "#e4263b", size: 6, scale: 1, tx: 0, ty: 0 };
 function fmTransform() { $("#fm-canvas").style.transform = `translate(${fEd.tx}px,${fEd.ty}px) scale(${fEd.scale})`; }
 function fmRedraw() {
   const cv = $("#fm-canvas"), ctx = cv.getContext("2d");
@@ -1203,6 +1203,12 @@ function fmRedraw() {
       ctx.font = `700 ${fs}px Fredoka, sans-serif`; ctx.textBaseline = "top";
       ctx.lineWidth = Math.max(3, fs / 8); ctx.strokeStyle = "rgba(255,255,255,.9)";
       ctx.strokeText(s.text, s.x, s.y); ctx.fillStyle = s.color; ctx.fillText(s.text, s.x, s.y);
+    } else if (s.type === "rect") {
+      ctx.lineWidth = s.size; ctx.strokeRect(Math.min(s.x0, s.x1), Math.min(s.y0, s.y1), Math.abs(s.x1 - s.x0), Math.abs(s.y1 - s.y0));
+    } else if (s.type === "ellipse") {
+      ctx.lineWidth = s.size; ctx.beginPath();
+      ctx.ellipse((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, Math.abs(s.x1 - s.x0) / 2, Math.abs(s.y1 - s.y0) / 2, 0, 0, 7);
+      ctx.stroke();
     } else if (s.pts.length === 1) { ctx.beginPath(); ctx.arc(s.pts[0].x, s.pts[0].y, s.size / 2, 0, 7); ctx.fill(); }
     else { ctx.beginPath(); s.pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke(); }
   }
@@ -1210,8 +1216,8 @@ function fmRedraw() {
 function fmFit() { fEd.scale = 1; fEd.tx = 0; fEd.ty = 0; fmTransform(); }
 function fmCoords(e) { const cv = $("#fm-canvas"), r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; }
 function openFotoEditor(path, url) {
-  fEd.path = path; fEd.strokes = []; fEd.draw = false; fEd.pendingText = null;
-  $(".fm-draw")?.classList.remove("on"); $(".fm-text")?.classList.remove("on");
+  fEd.path = path; fEd.strokes = []; fEd.tool = "pan"; fEd.pendingText = null;
+  document.querySelectorAll("#foto-modal .fm-toolbar .on").forEach((x) => x.classList.remove("on"));
   $(".fm-stage").style.cursor = "grab";
   const img = new Image(); img.crossOrigin = "anonymous";
   img.onload = () => {
@@ -1228,17 +1234,23 @@ function openFotoEditor(path, url) {
   const modal = $("#foto-modal"); if (!modal) return;
   const stage = modal.querySelector(".fm-stage");
   const pts = new Map(); let pinch = null, pan = null;
+  const toolBtns = () => modal.querySelectorAll('[data-act="draw"],[data-act="rect"],[data-act="ellipse"],[data-act="text"]');
+  function setTool(tool, btn) {
+    toolBtns().forEach((x) => x.classList.remove("on"));
+    fEd.tool = tool; fEd.pendingText = null;
+    if (btn && tool !== "pan") btn.classList.add("on");
+    stage.style.cursor = tool === "pan" ? "grab" : (tool === "text" ? "text" : "crosshair");
+  }
   modal.querySelector(".fm-toolbar").addEventListener("click", (e) => {
     const b = e.target.closest("[data-act]"); if (!b) return;
     const a = b.dataset.act;
     if (a === "zoomin") { fEd.scale = Math.min(6, fEd.scale * 1.25); fmTransform(); }
     else if (a === "zoomout") { fEd.scale = Math.max(0.4, fEd.scale / 1.25); fmTransform(); }
     else if (a === "fit") fmFit();
-    else if (a === "draw") { fEd.draw = !fEd.draw; fEd.pendingText = null; modal.querySelector(".fm-text").classList.remove("on"); b.classList.toggle("on", fEd.draw); stage.style.cursor = fEd.draw ? "crosshair" : "grab"; }
+    else if (a === "draw" || a === "rect" || a === "ellipse") { setTool(fEd.tool === a ? "pan" : a, b); }
     else if (a === "text") {
       const t = prompt("Texto a incrustar:"); if (!t) return;
-      fEd.pendingText = t; fEd.draw = false; modal.querySelector(".fm-draw").classList.remove("on");
-      b.classList.add("on"); stage.style.cursor = "text";
+      setTool("pan"); fEd.pendingText = t; b.classList.add("on"); stage.style.cursor = "text";
     }
     else if (a === "size") { fEd.size = fEd.size >= 16 ? 4 : fEd.size + 6; }
     else if (a === "undo") { fEd.strokes.pop(); fmRedraw(); }
@@ -1251,25 +1263,34 @@ function openFotoEditor(path, url) {
     }
   });
   modal.querySelector(".fm-color").addEventListener("input", (e) => { fEd.color = e.target.value; });
+
+  const isShape = () => fEd.tool === "draw" || fEd.tool === "rect" || fEd.tool === "ellipse";
   stage.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     if (fEd.pendingText) {   // colocar texto donde se pulsa
       const c = fmCoords(e);
       fEd.strokes.push({ type: "text", x: c.x, y: c.y, text: fEd.pendingText, color: fEd.color, size: fEd.size });
       fEd.pendingText = null; modal.querySelector(".fm-text").classList.remove("on");
-      stage.style.cursor = fEd.draw ? "crosshair" : "grab"; fmRedraw(); return;
+      stage.style.cursor = "grab"; fmRedraw(); return;
     }
     stage.setPointerCapture?.(e.pointerId);
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (fEd.draw && pts.size === 1) { fEd.drawing = { color: fEd.color, size: fEd.size, pts: [fmCoords(e)] }; fEd.strokes.push(fEd.drawing); fmRedraw(); }
-    else if (pts.size === 1) pan = { x: e.clientX, y: e.clientY, tx: fEd.tx, ty: fEd.ty };
+    if (isShape() && pts.size === 1) {
+      const c = fmCoords(e);
+      if (fEd.tool === "draw") fEd.drawing = { color: fEd.color, size: fEd.size, pts: [c] };
+      else fEd.drawing = { type: fEd.tool, color: fEd.color, size: fEd.size, x0: c.x, y0: c.y, x1: c.x, y1: c.y };
+      fEd.strokes.push(fEd.drawing); fmRedraw();
+    } else if (pts.size === 1) pan = { x: e.clientX, y: e.clientY, tx: fEd.tx, ty: fEd.ty };
     else if (pts.size === 2) { const a = [...pts.values()]; pinch = { d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1, s: fEd.scale }; pan = null; fEd.drawing = null; }
   });
   stage.addEventListener("pointermove", (e) => {
     if (!pts.has(e.pointerId)) return;
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (fEd.draw && fEd.drawing && pts.size === 1) { fEd.drawing.pts.push(fmCoords(e)); fmRedraw(); }
-    else if (pinch && pts.size >= 2) { const a = [...pts.values()]; const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); fEd.scale = Math.max(0.4, Math.min(6, pinch.s * d / pinch.d)); fmTransform(); }
+    if (fEd.drawing && isShape() && pts.size === 1) {
+      const c = fmCoords(e);
+      if (fEd.tool === "draw") fEd.drawing.pts.push(c); else { fEd.drawing.x1 = c.x; fEd.drawing.y1 = c.y; }
+      fmRedraw();
+    } else if (pinch && pts.size >= 2) { const a = [...pts.values()]; const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); fEd.scale = Math.max(0.4, Math.min(6, pinch.s * d / pinch.d)); fmTransform(); }
     else if (pan && pts.size === 1) { fEd.tx = pan.tx + (e.clientX - pan.x); fEd.ty = pan.ty + (e.clientY - pan.y); fmTransform(); }
   });
   const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; if (pts.size === 0) { pan = null; fEd.drawing = null; } };
