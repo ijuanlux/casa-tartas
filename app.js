@@ -689,6 +689,90 @@ function renderStats() {
 $("#stats-range")?.addEventListener("change", renderStats);
 $("#stats-month")?.addEventListener("change", renderStats);
 
+// ===== Asistente "Tarta" (IA básica sin claves: entiende y consulta los datos) =====
+const MESES = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 };
+const MESES_RE = "enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre";
+
+function isoFromParts(y, m, d) { return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`; }
+function formatDayEs(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+}
+function parseSpanishDate(t) {
+  const today = new Date();
+  const iso = (dt) => isoFromParts(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+  if (/anteayer|antes de ayer/.test(t)) { const d = new Date(today); d.setDate(d.getDate() - 2); return iso(d); }
+  if (/\bayer\b/.test(t)) { const d = new Date(today); d.setDate(d.getDate() - 1); return iso(d); }
+  if (/\bhoy\b/.test(t)) return iso(today);
+  let m = t.match(new RegExp(`(\\d{1,2})\\s+de\\s+(${MESES_RE})(?:\\s+(?:de\\s+)?(\\d{4}))?`));
+  if (m) return isoFromParts(m[3] ? +m[3] : today.getFullYear(), MESES[m[2]], +m[1]);
+  m = t.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
+  if (m) { let y = m[3] ? +m[3] : today.getFullYear(); if (y < 100) y += 2000; const mo = +m[2], d = +m[1]; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return isoFromParts(y, mo, d); }
+  return null;
+}
+function parseSpanishMonth(t) {
+  const today = new Date();
+  if (/este mes/.test(t)) return { y: today.getFullYear(), m: today.getMonth() + 1 };
+  if (/mes pasado/.test(t)) { const d = new Date(today.getFullYear(), today.getMonth() - 1, 1); return { y: d.getFullYear(), m: d.getMonth() + 1 }; }
+  const m = t.match(new RegExp(`\\b(${MESES_RE})\\b`));
+  if (m && !new RegExp(`\\d{1,2}\\s+de\\s+${MESES_RE}`).test(t)) return { y: today.getFullYear(), m: MESES[m[1]] };
+  return null;
+}
+
+async function casaQuery(question) {
+  const t = (question || "").toLowerCase().trim();
+  if (!t) return "Pregúntame algo 🙂";
+  let rows = [];
+  try {
+    const { data, error } = await sb.from("cierres")
+      .select("fecha, tot_facturas, tarjetas, efectivo, pagos_banco, tot_suministros, locales(nombre)")
+      .order("fecha", { ascending: true }).limit(5000);
+    if (error) throw error;
+    rows = data || [];
+  } catch (e) { return "Uy, ahora mismo no puedo consultar los datos 😕"; }
+  if (!rows.length) return "Todavía no hay ningún cierre guardado. ¡Mete el primero! 🎂";
+
+  const caja = (r) => Number(r.tot_facturas || 0) + Number(r.tarjetas || 0) + Number(r.efectivo || 0);
+  const sum = (a, f) => a.reduce((s, x) => s + f(x), 0);
+
+  // 1) ¿pregunta por un día concreto?
+  const iso = parseSpanishDate(t);
+  if (iso) {
+    const day = rows.filter((r) => r.fecha === iso);
+    if (!day.length) return `No encuentro ningún cierre del ${formatDayEs(iso)} 🤔`;
+    return `El ${formatDayEs(iso)} se hizo ${fmtMoney(sum(day, caja))} de caja 🎂\n· Facturas: ${fmtMoney(sum(day, (r) => Number(r.tot_facturas || 0)))}\n· Tarjetas: ${fmtMoney(sum(day, (r) => Number(r.tarjetas || 0)))}\n· Efectivo: ${fmtMoney(sum(day, (r) => Number(r.efectivo || 0)))}`;
+  }
+
+  // 2) ámbito por mes (si lo menciona)
+  const mo = parseSpanishMonth(t);
+  let scope = rows, label = "en total";
+  if (mo) {
+    const key = `${mo.y}-${String(mo.m).padStart(2, "0")}`;
+    scope = rows.filter((r) => r.fecha.slice(0, 7) === key);
+    label = "en " + mesLabel(key).toLowerCase();
+    if (!scope.length) return `No hay cierres ${label} 🤔`;
+  }
+
+  if (/mejor|r[eé]cord|m[aá]ximo/.test(t)) {
+    let best = scope[0]; scope.forEach((r) => { if (caja(r) > caja(best)) best = r; });
+    return `El mejor día ${mo ? label + " " : ""}fue el ${formatDayEs(best.fecha)} con ${fmtMoney(caja(best))} 💰`;
+  }
+  if (/peor|m[ií]nimo|menos caja/.test(t)) {
+    let w = scope[0]; scope.forEach((r) => { if (caja(r) < caja(w)) w = r; });
+    return `El día más flojo ${mo ? label + " " : ""}fue el ${formatDayEs(w.fecha)} con ${fmtMoney(caja(w))}.`;
+  }
+  if (/media|promedio/.test(t)) return `La media por cierre ${label} es ${fmtMoney(sum(scope, caja) / scope.length)} (${scope.length} cierres).`;
+  if (/tarjeta/.test(t)) return `En tarjeta ${label} se ha cobrado ${fmtMoney(sum(scope, (r) => Number(r.tarjetas || 0)))} 💳`;
+  if (/efectivo|met[aá]lico/.test(t)) return `En efectivo ${label} se ha cobrado ${fmtMoney(sum(scope, (r) => Number(r.efectivo || 0)))} 💵`;
+  if (/cu[aá]ntos cierres|n[uú]mero de cierres/.test(t)) return `Hay ${scope.length} cierres ${label}.`;
+  if (/suministro|gasto/.test(t)) return `Suministros y gastos ${label}: ${fmtMoney(sum(scope, (r) => Number(r.tot_suministros || 0)))}.`;
+  if (/banco|proveedor/.test(t)) return `Pagos por banco ${label}: ${fmtMoney(sum(scope, (r) => Number(r.pagos_banco || 0)))}.`;
+  if (/total|cu[aá]nto|caja|factur|ingres|gana|vend/.test(t)) return `${mo ? "Caja " + label : "Caja total"}: ${fmtMoney(sum(scope, caja))} 🎂 (${scope.length} cierres).`;
+
+  return "Puedo decirte la caja de un día (\"¿cuánto se hizo el 15 de mayo?\" o \"¿y ayer?\"), el total o la media de un mes, el mejor día, o cuánto en tarjeta/efectivo. ¿Qué quieres saber? 🎂";
+}
+window.casaQuery = casaQuery;
+
 // ===== Admin =====
 async function loadAdmin() {
   if (me.profile.role !== "admin") return;

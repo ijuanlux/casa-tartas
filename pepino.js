@@ -500,7 +500,50 @@ const CAKE_PHRASES = [
   "Me hicieron con amor y mantequilla. Sobre todo mantequilla",
   "Engordo a la gente y luego me odian. Injusto",
   "Llevo aquí desde las 6am, como el pan. Literal",
+  "Tócame y pregúntame por la caja 👆",
 ];
+
+/* chat de la tarta (IA básica: usa window.casaQuery de app.js) */
+let cakeChat = null;
+function buildChat() {
+  const el = document.createElement("div");
+  el.className = "cake-chat";
+  el.hidden = true;
+  el.innerHTML = `
+    <div class="cc-head"><span>🎂 Pregúntame</span><button class="cc-close" type="button" aria-label="Cerrar">✕</button></div>
+    <div class="cc-msgs"></div>
+    <form class="cc-form"><input type="text" placeholder="¿Cuánto se hizo el 15 de mayo?" autocomplete="off" /><button type="submit" aria-label="Enviar">➤</button></form>`;
+  document.body.appendChild(el);
+  const msgs = el.querySelector(".cc-msgs"), form = el.querySelector(".cc-form"), input = el.querySelector("input");
+  function add(text, who) {
+    const m = document.createElement("div");
+    m.className = "cc-msg " + who;
+    m.textContent = text;
+    msgs.appendChild(m); msgs.scrollTop = msgs.scrollHeight;
+    return m;
+  }
+  let greeted = false;
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const q = input.value.trim(); if (!q) return;
+    input.value = ""; add(q, "me");
+    const typing = add("escribiendo…", "bot typing");
+    let ans;
+    try { ans = (typeof window.casaQuery === "function") ? await window.casaQuery(q) : "No tengo acceso a los datos ahora mismo."; }
+    catch (err) { ans = "Uy, algo ha fallado 😕"; }
+    typing.remove(); add(ans, "bot");
+  });
+  el.querySelector(".cc-close").addEventListener("click", () => { el.hidden = true; });
+  return {
+    open() {
+      el.hidden = false;
+      if (!greeted) { greeted = true; add("¡Hola! Soy la tarta 🎂 Pregúntame por la caja de un día (\"¿cuánto se hizo ayer?\"), el total o la media de un mes, el mejor día… lo que quieras.", "bot"); }
+      input.focus();
+    },
+    close() { el.hidden = true; },
+  };
+}
+function ensureChat() { if (!cakeChat) cakeChat = buildChat(); return cakeChat; }
 
 function buildMascot() {
   const el = document.createElement("div");
@@ -517,8 +560,14 @@ function buildMascot() {
       <path d="M37 70 q4 4 8 0" fill="none" stroke="#7a4b2a" stroke-width="2.4" stroke-linecap="round"/>
       <path d="M55 70 q4 4 8 0" fill="none" stroke="#7a4b2a" stroke-width="2.4" stroke-linecap="round"/>
       <path d="M42 82 q8 -5 16 0" fill="none" stroke="#7a4b2a" stroke-width="2.4" stroke-linecap="round"/>
-    </svg>`;
+    </svg>
+    <span class="cm-chatbadge">💬</span>`;
   document.body.appendChild(el);
+  const svg = el.querySelector(".cm-cake");
+  svg.style.pointerEvents = "auto";
+  svg.style.cursor = "pointer";
+  svg.addEventListener("click", () => ensureChat().open());
+  el.querySelector(".cm-chatbadge").addEventListener("click", () => ensureChat().open());
   return el;
 }
 
@@ -526,12 +575,23 @@ function initMascot() {
   const panel = $("#tab-estadisticas");
   if (!panel) return;
   let el = null, bubble = null, active = false;
-  let bubbleTimer = null, wanderTween = null, bobTween = null, lastPhrase = -1;
+  let bubbleTimer = null, wanderTween = null, bobTween = null, lastPhrase = -1, firstShown = false;
+
+  // si existe frases.json (p.ej. actualizado a diario por una IA), úsalo
+  fetch("./frases.json", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => { if (Array.isArray(d) && d.length) CAKE_PHRASES.splice(0, CAKE_PHRASES.length, ...d); })
+    .catch(() => {});
 
   function nextPhrase() {
     if (!active) return;
     let i;
-    do { i = Math.floor(Math.random() * CAKE_PHRASES.length); } while (i === lastPhrase && CAKE_PHRASES.length > 1);
+    if (!firstShown) {
+      firstShown = true;                                  // "frase del día": cambia cada día sin repetir patrón
+      i = Math.floor(Date.now() / 86400000) % CAKE_PHRASES.length;
+    } else {
+      do { i = Math.floor(Math.random() * CAKE_PHRASES.length); } while (i === lastPhrase && CAKE_PHRASES.length > 1);
+    }
     lastPhrase = i;
     bubble.textContent = CAKE_PHRASES[i];
     el.classList.add("talking");
