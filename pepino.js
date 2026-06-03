@@ -518,6 +518,10 @@ const CAKE_PHRASES = [
   "Si sobro, me tiran. Si gusto, me acaban. No gano.",
   "Glaseada para la ocasión. La ocasión es mi funeral.",
   "Dos días en el escaparate y ya hablan de rebajarme.",
+  "Buenas, {n}. ¿Hoy también me miras con hambre?",
+  "{n}, tú tan dulce y yo tan amargada.",
+  "Solo tú me entiendes, {n}. Bueno, ni tú.",
+  "Cuídate, {n}, que sin ti esto es solo azúcar y tristeza.",
   "Tócame y pregúntame por la caja 👆",
 ];
 
@@ -540,6 +544,9 @@ const SECTION_PHRASES = {
     "Caja del día. Mi parte: cero, como siempre.",
     "Números arriba, ánimo abajo. Lo normal.",
     "Cierra el día, jefa, que yo ya estoy cerrada de serie.",
+    "Venga {n}, apunta lo de hoy y nos vamos.",
+    "{n}, otro día cerrado, otra hermana mía menos.",
+    "A darle, {n}, que el azúcar no se cuenta solo.",
   ],
   historico: [
     "Diosss… cuántas ventas. Cuántas tartas sacrificadas.",
@@ -556,6 +563,8 @@ const SECTION_PHRASES = {
     "Tantos cierres… y ninguno me cerró a mí los ojos con cariño.",
     "Esto no es un registro, es un obituario con nata.",
     "Buen mes. Para la caja. Para nosotras, masacre.",
+    "{n}, mira cuánta tarta ha caído por tu culpa 😢",
+    "Buen trabajo, {n}. A costa de mi familia, pero bueno.",
   ],
   estadisticas: CAKE_PHRASES,
   cuaderno: [
@@ -572,6 +581,8 @@ const SECTION_PHRASES = {
     "Más facturas que abrazos en este sitio.",
     "Ordena tus papeles, que tu vida ya la veo ordenada.",
     "Notas, fotos, contactos… un museo del estrés.",
+    "{n}, aquí guardas hasta los secretos. Yo guardo rencor.",
+    "Tu cuaderno, {n}: todo apuntado menos cómo me siento.",
   ],
   admin: [
     "Zona de jefes. Yo aquí no pinto nada (ni me dejan).",
@@ -599,6 +610,8 @@ const REACTIONS = {
     "Cuadrado al céntimo. Mi vida sigue descuadrada.",
     "Hecho. Mañana más bizcochos al matadero.",
     "Caja a salvo. Las tartas… ya tal.",
+    "¡Bien hecho, {n}! Otro día cuadrado.",
+    "Listo, {n}. Descansa, que te lo has currado.",
   ],
   proveedor: [
     "Otro contacto más para la agenda del crimen.",
@@ -646,6 +659,9 @@ const REACTIONS = {
     "¡TOMA PASTA! Hoy invito yo (es broma, soy una tarta).",
     "¡Estamos ricos! Bueno, vosotros. Yo sigo a 3€ la porción.",
     "¡QUE LLUEVA LA PASTA! 💸💸",
+    "¡{n}, MENUDA CAJA HOY! 🤑",
+    "¡A forrarse, {n}! Te lo has ganado 💸",
+    "¡DIOS, {n}! Hoy sí que has petado 🤑",
   ],
 };
 
@@ -850,6 +866,7 @@ function initMascot() {
 
   const currentSection = () => document.querySelector(".tab.active")?.dataset.tab || "nuevo";
   function setPool() { pool = SECTION_PHRASES[currentSection()] || CAKE_PHRASES; }
+  const fill = (s) => String(s).replace(/\{n\}/g, window.casaNombre || "Olga");   // personaliza con el nombre
 
   function nextPhrase() {
     if (!active) return;
@@ -858,7 +875,7 @@ function initMascot() {
     if (!firstShown) { firstShown = true; i = Math.floor(Date.now() / 86400000) % pool.length; }
     else { do { i = Math.floor(Math.random() * pool.length); } while (i === lastPhrase && pool.length > 1); }
     lastPhrase = i;
-    bubble.textContent = pool[i];
+    bubble.textContent = fill(pool[i]);
     el.classList.add("talking");
     if (hasGsap && Math.random() < 0.4) emote(emoteForPhrase(pool[i]));   // de vez en cuando, un gesto
     bubbleTimer = setTimeout(() => {
@@ -935,7 +952,7 @@ function initMascot() {
     if (kind === "cierre" && detail && detail.amount >= 300) { arr = REACTIONS.cajaGuapa; bigCaja = true; }
     if (bubbleTimer) clearTimeout(bubbleTimer);
     const txt = arr[Math.floor(Math.random() * arr.length)];
-    bubble.textContent = txt;
+    bubble.textContent = fill(txt);
     el.classList.add("talking");
     if (bigCaja) {
       emote("hop");

@@ -153,6 +153,8 @@ async function onLogin(user) {
   }
   me = { id: user.id, email: user.email, profile: prof || { role: "usuario", full_name: user.email } };
   $("#user-name").textContent = me.profile.full_name || me.email;
+  const fn = me.profile.full_name || "";
+  window.casaNombre = (fn && !fn.includes("@")) ? fn.trim().split(/\s+/)[0] : "Olga";   // nombre para la mascota
   $$(".admin-only").forEach(el => el.hidden = me.profile.role !== "admin");
 
   await loadLocales();
