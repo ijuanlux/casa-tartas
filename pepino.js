@@ -513,6 +513,7 @@ const CAKE_AVATAR = `
     <rect x="10.5" y="14" width="8" height="5" rx="2.2" fill="#1b1b22"/>
     <rect x="21.5" y="14" width="8" height="5" rx="2.2" fill="#1b1b22"/>
     <rect x="18.5" y="15.4" width="3" height="2" rx="1" fill="#1b1b22"/>
+    <path d="M16.5 27 q3.5 3 7 0" fill="none" stroke="#b5678c" stroke-width="1.6" stroke-linecap="round"/>
     <rect x="19" y="6" width="2" height="6" rx="1" fill="#ff5e8a"/>
     <circle cx="20" cy="5" r="2" fill="#ffd24a"/>
   </svg>`;
@@ -556,8 +557,7 @@ function buildChat() {
     if (who.indexOf("bot") === 0) {
       const av = document.createElement("span");
       av.className = "cc-avatar";
-      av.innerHTML = CAKE_AVATAR;
-      if (lastWho && lastWho.indexOf("bot") === 0) av.style.visibility = "hidden"; // agrupa mensajes seguidos
+      av.innerHTML = CAKE_AVATAR;   // avatar siempre visible en cada mensaje del bot
       row.appendChild(av);
     }
     const m = document.createElement("div");
