@@ -2,7 +2,7 @@
 // Cache-first para estáticos, network-only para Supabase (datos frescos).
 // Sube CACHE_VERSION cuando cambies HTML/CSS/JS para forzar refresh.
 
-const CACHE_VERSION = "v28";
+const CACHE_VERSION = "v29";
 const CACHE_NAME = `casa-tartas-${CACHE_VERSION}`;
 
 const ASSETS = [
@@ -51,17 +51,31 @@ self.addEventListener("fetch", (event) => {
   // Solo GET en cache
   if (event.request.method !== "GET") return;
 
+  const sameOrigin = url.origin === self.location.origin;
+  const isCode = sameOrigin && (url.pathname.endsWith("/") || /\.(html|js|css|json)$/.test(url.pathname));
+
+  // CÓDIGO (HTML/JS/CSS/JSON): network-first → siempre lo último online, caché solo de respaldo offline
+  if (isCode) {
+    event.respondWith(
+      fetch(event.request).then((res) => {
+        if (res.ok) { const copy = res.clone(); caches.open(CACHE_NAME).then((c) => c.put(event.request, copy)); }
+        return res;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // RESTO (imágenes, fuentes, CDNs): cache-first
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
       return fetch(event.request).then((res) => {
-        // Cachea respuestas exitosas same-origin y la CDN de Supabase JS
-        if (res.ok && (url.origin === self.location.origin || url.hostname === "cdn.jsdelivr.net")) {
+        if (res.ok && (sameOrigin || url.hostname === "cdn.jsdelivr.net")) {
           const copy = res.clone();
           caches.open(CACHE_NAME).then((c) => c.put(event.request, copy));
         }
         return res;
-      }).catch(() => cached); // sin red y sin cache → fallback a undefined
+      }).catch(() => cached);
     })
   );
 });
