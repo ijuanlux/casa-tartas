@@ -845,17 +845,16 @@ function buildMascot() {
   document.body.appendChild(el);
   const svg = el.querySelector(".cm-cake");
   svg.style.pointerEvents = "auto";
-  svg.style.cursor = "pointer";
-  svg.addEventListener("click", () => ensureChat().open());
+  svg.style.cursor = "grab";
   el.querySelector(".cm-chatbadge").addEventListener("click", () => ensureChat().open());
-  return el;
+  return el;   // arrastre / tap se cablean en initMascot (wireDrag)
 }
 
 function initMascot() {
   const app = $("#view-app");
   if (!app) return;
   let el = null, bubble = null, active = false;
-  let bubbleTimer = null, wanderTween = null, bobTween = null, anticTimer = null, lastPhrase = -1, firstShown = false;
+  let bubbleTimer = null, wanderTween = null, bobTween = null, anticTimer = null, lastPhrase = -1, firstShown = false, pinned = false;
   let pool = CAKE_PHRASES;
 
   // si existe frases.json (p.ej. actualizado a diario por una IA), úsalo para estadísticas
@@ -914,7 +913,7 @@ function initMascot() {
   }
 
   function wander() {
-    if (!active || !hasGsap) return;
+    if (!active || !hasGsap || pinned) return;
     const w = el.offsetWidth || 96;
     const maxX = Math.max(0, innerWidth - w - 32);
     wanderTween = gsap.to(el, { x: Math.random() * maxX, duration: 4 + Math.random() * 3, ease: "sine.inOut", onComplete: wander });
@@ -941,17 +940,61 @@ function initMascot() {
     anticTimer = setTimeout(() => { if (active) emote(EMOTES[Math.floor(Math.random() * EMOTES.length)]); scheduleAntic(); }, 9000 + Math.random() * 8000);
   }
 
+  // ---- arrastrar para fijar / mantener pulsado para liberar ----
+  const PIN_KEY = "casa_tarta_pos";
+  function pinTo(x, y) {
+    pinned = true;
+    if (wanderTween) wanderTween.kill();
+    if (hasGsap) gsap.set(el, { x: 0 });
+    el.style.left = x + "px"; el.style.top = y + "px"; el.style.bottom = "auto";
+  }
+  function unpin() {
+    pinned = false;
+    try { localStorage.removeItem(PIN_KEY); } catch (e) {}
+    el.style.left = ""; el.style.top = ""; el.style.bottom = "";
+    if (active && hasGsap) { gsap.set(el, { x: 0 }); wander(); }
+    if (bubble) { bubble.textContent = "¡Libre otra vez! A pasear. 🎂"; el.classList.add("talking"); }
+  }
+  function wireDrag() {
+    const h = el.querySelector(".cm-cake");
+    let sx, sy, sl, st, moved = false, down = false, longT = null, longed = false;
+    h.addEventListener("pointerdown", (e) => {
+      down = true; moved = false; longed = false; sx = e.clientX; sy = e.clientY;
+      const r = el.getBoundingClientRect(); sl = r.left; st = r.top;
+      h.setPointerCapture?.(e.pointerId); h.style.cursor = "grabbing";
+      longT = setTimeout(() => { if (down && !moved) { longed = true; unpin(); } }, 600);
+    });
+    h.addEventListener("pointermove", (e) => {
+      if (!down) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!moved && Math.hypot(dx, dy) < 6) return;
+      moved = true; if (longT) { clearTimeout(longT); longT = null; }
+      if (!pinned) { pinned = true; if (wanderTween) wanderTween.kill(); if (hasGsap) gsap.set(el, { x: 0 }); el.style.bottom = "auto"; }
+      const w = el.offsetWidth, ht = el.offsetHeight;
+      el.style.left = Math.max(0, Math.min(innerWidth - w, sl + dx)) + "px";
+      el.style.top = Math.max(0, Math.min(innerHeight - ht, st + dy)) + "px";
+    });
+    const end = () => {
+      if (!down) return; down = false; h.style.cursor = "grab";
+      if (longT) { clearTimeout(longT); longT = null; }
+      if (moved) { try { localStorage.setItem(PIN_KEY, JSON.stringify({ x: parseInt(el.style.left), y: parseInt(el.style.top) })); } catch (e) {} }
+      else if (!longed) ensureChat().open();   // tap simple → chat
+    };
+    h.addEventListener("pointerup", end);
+    h.addEventListener("pointercancel", () => { down = false; if (longT) clearTimeout(longT); });
+  }
+
   function start() {
     if (active) return;
     active = true;
-    if (!el) { el = buildMascot(); bubble = el.querySelector(".cm-bubble"); }
+    if (!el) { el = buildMascot(); bubble = el.querySelector(".cm-bubble"); wireDrag(); const p = (() => { try { return JSON.parse(localStorage.getItem(PIN_KEY) || "null"); } catch (e) { return null; } })(); if (p) pinTo(p.x, p.y); }
     el.style.display = "block";
     el.classList.add("walking");
     setPool();
     if (hasGsap) {
-      gsap.set(el, { x: 0 });
+      if (!pinned) gsap.set(el, { x: 0 });
       bobTween = gsap.to(el.querySelector(".cm-cake"), { y: -8, rotation: 2, duration: 1.3, yoyo: true, repeat: -1, ease: "sine.inOut", transformOrigin: "50% 100%" });
-      wander();
+      if (!pinned) wander();
     }
     bubbleTimer = setTimeout(nextPhrase, 900);
     scheduleAntic();

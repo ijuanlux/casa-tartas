@@ -708,12 +708,19 @@ function renderStats() {
   const mkScales = () => ({ y: { beginAtZero: true, grid: { color: gridc }, ticks: { callback: (v) => (v >= 1000 ? (v / 1000) + "k" : v) + "€" } }, x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } } });
   const mk = (sel, cfg) => { try { return new Chart($(sel), cfg); } catch (e) { console.error("Chart " + sel + " falló:", e); return null; } };
 
+  // etiquetas de datos incrustadas (€ en barras y porciones)
+  if (window.ChartDataLabels && !Chart.__dl) { try { Chart.register(window.ChartDataLabels); } catch (e) {} Chart.__dl = true; }
+  Chart.defaults.set("plugins.datalabels", { display: false });
+  const eurLbl = (v) => (v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k" : Math.round(v)) + "€";
+  const dlBar = () => ({ display: true, anchor: "end", align: "top", clamp: true, color: ink, font: { family: "Fredoka", weight: "700", size: 10 }, formatter: eurLbl });
+  const dlPie = () => ({ display: (c) => Number(c.dataset.data[c.dataIndex]) > 0, color: "#fff", font: { family: "Fredoka", weight: "700", size: 11 }, formatter: eurLbl, textStrokeColor: "rgba(0,0,0,.45)", textStrokeWidth: 3 });
+
   destroyCharts();
 
   charts.comp = mk("#chart-composicion", {
     type: "doughnut",
     data: { labels: ["Facturas", "Tarjetas", "Efectivo"], datasets: [{ data: [totalFact, totalTarj, totalEfec], backgroundColor: [PINK, BLUE, CREAM], borderColor: card, borderWidth: 3, borderRadius: 6, hoverOffset: 10, spacing: 2 }] },
-    options: { maintainAspectRatio: false, cutout: "70%", plugins: { legend: legBottom(), centerText: { value: fmtMoney(totalCaja), label: "caja" }, tooltip: { callbacks: { label: pctTip } } } },
+    options: { maintainAspectRatio: false, cutout: "70%", plugins: { legend: legBottom(), centerText: { value: fmtMoney(totalCaja), label: "caja" }, datalabels: dlPie(), tooltip: { callbacks: { label: pctTip } } } },
     plugins: [centerText],
   });
 
@@ -723,7 +730,7 @@ function renderStats() {
   charts.loc = mk("#chart-locales", {
     type: "doughnut",
     data: { labels: localNames, datasets: [{ data: localNames.map((n) => byLocal[n]), backgroundColor: [PINK, GOLD, BLUE, PURPLE, GREEN, TEAL, CREAM], borderColor: card, borderWidth: 3, borderRadius: 6, hoverOffset: 10, spacing: 2 }] },
-    options: { maintainAspectRatio: false, cutout: "62%", plugins: { legend: legBottom(), centerText: { value: String(localNames.length), label: localNames.length === 1 ? "local" : "locales" }, tooltip: { callbacks: { label: pctTip } } } },
+    options: { maintainAspectRatio: false, cutout: "62%", plugins: { legend: legBottom(), centerText: { value: String(localNames.length), label: localNames.length === 1 ? "local" : "locales" }, datalabels: dlPie(), tooltip: { callbacks: { label: pctTip } } } },
     plugins: [centerText],
   });
 
@@ -743,7 +750,7 @@ function renderStats() {
     },
     options: {
       maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { title: (t) => mesLabel(months[t[0].dataIndex]), label: moneyTip } } },
+      plugins: { legend: { display: false }, datalabels: dlBar(), tooltip: { callbacks: { title: (t) => mesLabel(months[t[0].dataIndex]), label: moneyTip } } },
       scales: mkScales(),
       onClick: (evt, els) => {
         if (!els.length) return;
@@ -766,21 +773,21 @@ function renderStats() {
   charts.evo = mk("#chart-evolucion", {
     type: "line",
     data: { labels: dates.map((d) => d.slice(5)), datasets: [{ label: "Caja", data: dates.map((d) => byDate[d]), borderColor: PINK, borderWidth: 3, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 6, pointHoverBackgroundColor: PINK, pointHoverBorderColor: "#fff", pointHoverBorderWidth: 2, backgroundColor: (c) => vgrad(c.chart, hexA(PINK, 0.35), hexA(PINK, 0)) }] },
-    options: { maintainAspectRatio: false, interaction: { intersect: false, mode: "index" }, plugins: { legend: { display: false }, glow: hexA(PINK, 0.5), tooltip: { callbacks: { label: moneyTip } } }, scales: mkScales() },
+    options: { maintainAspectRatio: false, interaction: { intersect: false, mode: "index" }, plugins: { legend: { display: false }, glow: hexA(PINK, 0.5), datalabels: { display: false }, tooltip: { callbacks: { label: moneyTip } } }, scales: mkScales() },
     plugins: [glow],
   });
 
   charts.pago = mk("#chart-pago", {
     type: "doughnut",
     data: { labels: ["Tarjetas", "Efectivo"], datasets: [{ data: [totalTarj, totalEfec], backgroundColor: [BLUE, GOLD], borderColor: card, borderWidth: 3, borderRadius: 6, hoverOffset: 10, spacing: 2 }] },
-    options: { maintainAspectRatio: false, cutout: "70%", plugins: { legend: legBottom(), centerText: { value: fmtMoney(totalTarj + totalEfec), label: "cobrado" }, tooltip: { callbacks: { label: pctTip } } } },
+    options: { maintainAspectRatio: false, cutout: "70%", plugins: { legend: legBottom(), centerText: { value: fmtMoney(totalTarj + totalEfec), label: "cobrado" }, datalabels: dlPie(), tooltip: { callbacks: { label: pctTip } } } },
     plugins: [centerText],
   });
 
   charts.gastos = mk("#chart-gastos", {
     type: "bar",
     data: { labels: ["Suministros", "Pagos banco"], datasets: [{ data: [totalSumin, totalBanco], borderRadius: 8, borderSkipped: false, maxBarThickness: 90, backgroundColor: (c) => [vgrad(c.chart, PURPLE, hexA(PURPLE, 0.4)), vgrad(c.chart, GREEN, hexA(GREEN, 0.4))][c.dataIndex] }] },
-    options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: moneyTip } } }, scales: mkScales() },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: dlBar(), tooltip: { callbacks: { label: moneyTip } } }, scales: mkScales() },
   });
 
   // foto de datos para el informe PDF (se redibuja en limpio, no se captura el dashboard)
