@@ -868,16 +868,39 @@ function initMascot() {
   function setPool() { pool = SECTION_PHRASES[currentSection()] || CAKE_PHRASES; }
   const fill = (s) => String(s).replace(/\{n\}/g, window.casaNombre || "Olga");   // personaliza con el nombre
 
+  // frase con datos REALES del dashboard (solo en Estadísticas)
+  function dataPhrase() {
+    const S = window.__lastStats; if (!S || !S.totals || !(S.totals.caja > 0)) return null;
+    const eur = Math.round(S.totals.caja);
+    const n = (S.kpi && parseInt(S.kpi.count)) || 0;
+    const porciones = Math.round(S.totals.caja / 3);   // ~3€/porción, a ojo
+    const T = [
+      `${eur}€ hechos. Detrás hay un reguero de compañeras caídas.`,
+      `${n} cierres contados. ${n} veces que vi morir el día.`,
+      `Unas ${porciones} porciones servidas. ${porciones} pedacitos de alguien.`,
+      `${eur}€ en caja y a mí ni un euro de propina, {n}.`,
+      S.kpi && S.kpi.best ? `Récord: ${S.kpi.best}. Ese día fue una masacre dulce.` : null,
+      S.kpi && S.kpi.avg ? `Media de ${S.kpi.avg} por cierre. Mi media de autoestima: 0.` : null,
+      `${eur}€ de alegría vendida… a costa de mi familia 😢`,
+      `${porciones} tartas al patíbulo para hacer ${eur}€. Gracias por nada.`,
+    ].filter(Boolean);
+    return T[Math.floor(Math.random() * T.length)];
+  }
+
   function nextPhrase() {
     if (!active) return;
     if (!pool || !pool.length) pool = CAKE_PHRASES;
-    let i;
-    if (!firstShown) { firstShown = true; i = Math.floor(Date.now() / 86400000) % pool.length; }
-    else { do { i = Math.floor(Math.random() * pool.length); } while (i === lastPhrase && pool.length > 1); }
-    lastPhrase = i;
-    bubble.textContent = fill(pool[i]);
+    let text = null;
+    if (firstShown && currentSection() === "estadisticas" && Math.random() < 0.5) text = dataPhrase();
+    if (!text) {
+      let i;
+      if (!firstShown) { firstShown = true; i = Math.floor(Date.now() / 86400000) % pool.length; }
+      else { do { i = Math.floor(Math.random() * pool.length); } while (i === lastPhrase && pool.length > 1); }
+      lastPhrase = i; text = pool[i];
+    }
+    bubble.textContent = fill(text);
     el.classList.add("talking");
-    if (hasGsap && Math.random() < 0.4) emote(emoteForPhrase(pool[i]));   // de vez en cuando, un gesto
+    if (hasGsap && Math.random() < 0.4) emote(emoteForPhrase(text));   // de vez en cuando, un gesto
     bubbleTimer = setTimeout(() => {
       el.classList.remove("talking");
       bubbleTimer = setTimeout(nextPhrase, 2200);
