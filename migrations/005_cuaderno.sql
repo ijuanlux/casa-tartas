@@ -30,5 +30,8 @@ create policy facturas_storage_select on storage.objects for select using (bucke
 drop policy if exists facturas_storage_insert on storage.objects;
 create policy facturas_storage_insert on storage.objects for insert with check (bucket_id = 'facturas' and auth.role() = 'authenticated');
 
+drop policy if exists facturas_storage_update on storage.objects;
+create policy facturas_storage_update on storage.objects for update using (bucket_id = 'facturas' and auth.role() = 'authenticated') with check (bucket_id = 'facturas' and auth.role() = 'authenticated');
+
 drop policy if exists facturas_storage_delete on storage.objects;
 create policy facturas_storage_delete on storage.objects for delete using (bucket_id = 'facturas' and auth.role() = 'authenticated');
