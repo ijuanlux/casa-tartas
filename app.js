@@ -1200,29 +1200,55 @@ async function loadProveedores() {
   cont.querySelectorAll(".prov-row").forEach((row) => row.addEventListener("click", () => openProveedor(data[Number(row.dataset.i)])));
 }
 
-// --- Notas ---
-$("#nota-form")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const texto = $("#nota-texto").value.trim(); if (!texto) return;
-  const { error } = await sb.from("notas").insert({ texto, user_id: me.id });
-  if (error) { alert(error.message); return; }
-  e.target.reset(); tartaReact("nota"); loadNotas();
-});
+// --- Notas (con editor de formato) ---
 async function loadNotas() {
   const cont = $("#notas-list"); if (!cont) return;
   const { data, error } = await sb.from("notas").select("*").order("created_at", { ascending: false }).limit(200);
   if (error) { cont.innerHTML = `<p class="hint">No se pudo cargar.</p>`; return; }
-  if (!data.length) { cont.innerHTML = `<p class="hint">Sin notas todavía. 📝</p>`; return; }
-  cont.innerHTML = data.map((n) => `
-    <div class="cuad-item nota-item">
-      <div class="cuad-item-body"><span>${esc(n.texto)}</span><small>${(n.created_at || "").slice(0, 10)}</small></div>
-      <button class="btn-ghost cuad-del" data-id="${n.id}" title="Borrar">🗑</button>
+  if (!data.length) { cont.innerHTML = `<p class="hint">Sin notas todavía. Dale a "Nueva nota". 📝</p>`; return; }
+  cont.innerHTML = data.map((n, i) => `
+    <div class="cuad-item nota-item" data-i="${i}">
+      <div class="cuad-item-body"><div class="nota-prev">${n.texto || ""}</div><small>${(n.created_at || "").slice(0, 10)}</small></div>
+      <span class="cuad-go">›</span>
     </div>`).join("");
-  cont.querySelectorAll(".cuad-del").forEach((b) => b.addEventListener("click", async () => {
-    await sb.from("notas").delete().eq("id", Number(b.dataset.id));
-    loadNotas();
-  }));
+  cont.querySelectorAll(".nota-item").forEach((row) => row.addEventListener("click", () => openNota(data[Number(row.dataset.i)])));
 }
+
+let notaEditId = null;
+function openNota(n) {
+  notaEditId = n ? n.id : null;
+  $("#nota-editor").innerHTML = n ? (n.texto || "") : "";
+  $(".nm-del").hidden = !n;
+  $("#nota-modal").showModal();
+  $("#nota-editor").focus();
+}
+(function initNotaModal() {
+  const modal = $("#nota-modal"); if (!modal) return;
+  const ed = $("#nota-editor");
+  modal.querySelector(".nm-tools").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-cmd]"); if (!b) return;
+    ed.focus(); document.execCommand(b.dataset.cmd, false, null);
+  });
+  modal.querySelectorAll("input[data-cmd]").forEach((inp) => inp.addEventListener("input", () => { ed.focus(); document.execCommand(inp.dataset.cmd, false, inp.value); }));
+  modal.querySelector(".nm-font").addEventListener("change", (e) => { if (!e.target.value) return; ed.focus(); document.execCommand("fontName", false, e.target.value); e.target.value = ""; });
+  modal.querySelector(".nm-size").addEventListener("change", (e) => { if (!e.target.value) return; ed.focus(); document.execCommand("fontSize", false, e.target.value); e.target.value = ""; });
+  modal.querySelector(".nm-close").addEventListener("click", () => modal.close());
+  modal.querySelector(".nm-save").addEventListener("click", async () => {
+    const html = ed.innerHTML.trim();
+    if (!html) { modal.close(); return; }
+    try {
+      if (notaEditId) { const { error } = await sb.from("notas").update({ texto: html }).eq("id", notaEditId); if (error) throw error; }
+      else { const { error } = await sb.from("notas").insert({ texto: html, user_id: me.id }); if (error) throw error; tartaReact("nota"); }
+      modal.close(); loadNotas();
+    } catch (err) { alert("Error: " + (err.message || err)); }
+  });
+  modal.querySelector(".nm-del").addEventListener("click", async () => {
+    if (!notaEditId) { modal.close(); return; }
+    if (!confirm("¿Borrar esta nota?")) return;
+    await sb.from("notas").delete().eq("id", notaEditId); modal.close(); loadNotas();
+  });
+})();
+$("#nota-nueva")?.addEventListener("click", () => openNota(null));
 
 // ===== Visor / editor de fotos =====
 const fEd = { path: null, img: null, strokes: [], drawing: null, movingText: null, tool: "pan", pendingText: null, color: "#e4263b", size: 6, scale: 1, tx: 0, ty: 0 };

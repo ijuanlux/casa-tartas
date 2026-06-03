@@ -386,10 +386,7 @@
         <!-- Notas -->
         <div class="card">
           <h2>📝 Notas</h2>
-          <form id="nota-form" class="cuad-form">
-            <textarea id="nota-texto" rows="2" placeholder="Apunta lo que sea..." required></textarea>
-            <button type="submit" class="btn-primary">Añadir nota</button>
-          </form>
+          <button type="button" id="nota-nueva" class="btn-primary" style="margin-bottom:12px;">➕ Nueva nota</button>
           <div id="notas-list" class="cuad-list"></div>
         </div>
       </div>
@@ -449,6 +446,42 @@
       <button class="fm-btn fm-close" data-act="close" title="Cerrar" type="button">✕</button>
     </div>
     <div class="fm-stage"><canvas id="fm-canvas"></canvas></div>
+  </dialog>
+
+  <!-- ============ EDITOR DE NOTA ============ -->
+  <dialog id="nota-modal" class="nota-modal">
+    <div class="nm-head">
+      <div class="nm-tools">
+        <button data-cmd="bold" type="button" title="Negrita"><b>B</b></button>
+        <button data-cmd="italic" type="button" title="Cursiva"><i>I</i></button>
+        <button data-cmd="underline" type="button" title="Subrayar"><u>U</u></button>
+        <button data-cmd="strikeThrough" type="button" title="Tachar"><s>S</s></button>
+        <select class="nm-font" title="Fuente">
+          <option value="">Fuente</option>
+          <option value="Fredoka">Fredoka</option>
+          <option value="Georgia">Serif</option>
+          <option value="Courier New">Mono</option>
+          <option value="Comic Sans MS">Comic</option>
+        </select>
+        <select class="nm-size" title="Tamaño">
+          <option value="">Tamaño</option>
+          <option value="2">Pequeña</option>
+          <option value="4">Normal</option>
+          <option value="6">Grande</option>
+          <option value="7">Enorme</option>
+        </select>
+        <label class="nm-color" title="Color del texto">A<input type="color" data-cmd="foreColor" value="#c64b6c" /></label>
+        <label class="nm-color" title="Resaltar">🖍<input type="color" data-cmd="hiliteColor" value="#fff27a" /></label>
+        <button data-cmd="insertUnorderedList" type="button" title="Lista">• Lista</button>
+        <button data-cmd="removeFormat" type="button" title="Quitar formato">⨯</button>
+      </div>
+      <button class="nm-close" type="button" aria-label="Cerrar">✕</button>
+    </div>
+    <div id="nota-editor" class="nm-editor" contenteditable="true" data-ph="Escribe tu nota…"></div>
+    <div class="nm-actions">
+      <button class="btn-ghost nm-del" type="button" hidden>🗑 Borrar</button>
+      <button class="btn-primary nm-save" type="button">Guardar</button>
+    </div>
   </dialog>
 
   <!-- ============ FICHA DE PROVEEDOR ============ -->
