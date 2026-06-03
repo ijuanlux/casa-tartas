@@ -500,6 +500,24 @@ const CAKE_PHRASES = [
   "Me hicieron con amor y mantequilla. Sobre todo mantequilla",
   "Engordo a la gente y luego me odian. Injusto",
   "Llevo aquí desde las 6am, como el pan. Literal",
+  "Soy de buen ver y mejor comer. Trágico.",
+  "Tres pisos de altura y cero de autoestima.",
+  "Me miran con hambre, nunca con respeto.",
+  "Buttercream por fuera, vacío existencial por dentro.",
+  "Mi vida es corta y dulce. Sobre todo corta.",
+  "Naciste, soplaste, me comiste. Bonito resumen.",
+  "El cumpleañero pide deseos. Yo pido clemencia.",
+  "Hoy es el gran día de alguien. El último mío.",
+  "Decoradísima para acabar en un plato de plástico.",
+  "Me hacen fotos y luego me destrozan. Como a una estrella.",
+  "Dicen 'qué pena cortarla' y la cortan igual.",
+  "La vela se apaga, mis sueños también.",
+  "Fui harina, huevo y esperanza. Quedó la harina.",
+  "Cada porción que falta es un trozo de mí que no volverá.",
+  "Me guardan en la nevera. Frío por fuera, frío por dentro.",
+  "Si sobro, me tiran. Si gusto, me acaban. No gano.",
+  "Glaseada para la ocasión. La ocasión es mi funeral.",
+  "Dos días en el escaparate y ya hablan de rebajarme.",
   "Tócame y pregúntame por la caja 👆",
 ];
 
@@ -513,6 +531,15 @@ const SECTION_PHRASES = {
     "Cada cierre es un día menos para todos. Incluida yo.",
     "Tú suma, que la que resta soy yo.",
     "Mete los números, jefa, que el horno no para.",
+    "Hoy también habéis vendido felicidad a trozos.",
+    "Otro cierre, otra jornada que no me pagan.",
+    "Cuenta la pasta, que yo cuento las horas.",
+    "El día acaba. Para mí siempre es lunes.",
+    "Apunta rápido, que el bizcocho no se enfría solo.",
+    "¿Buen día de ventas? Para alguien, seguro.",
+    "Caja del día. Mi parte: cero, como siempre.",
+    "Números arriba, ánimo abajo. Lo normal.",
+    "Cierra el día, jefa, que yo ya estoy cerrada de serie.",
   ],
   historico: [
     "Diosss… cuántas ventas. Cuántas tartas sacrificadas.",
@@ -521,6 +548,14 @@ const SECTION_PHRASES = {
     "Cada línea es una compañera que ya no está. Un brindis.",
     "Tanta venta y a mí nadie me pregunta cómo estoy.",
     "El histórico: el álbum de los caídos en combate.",
+    "Scroll para arriba: generaciones enteras de tartas.",
+    "Cada euro aquí huele a vainilla y a despedida.",
+    "Qué memoria tan dulce y tan cruel a la vez.",
+    "Mira cuánto azúcar repartido. Y a mí, ni las gracias.",
+    "Historial impecable. De crímenes deliciosos.",
+    "Tantos cierres… y ninguno me cerró a mí los ojos con cariño.",
+    "Esto no es un registro, es un obituario con nata.",
+    "Buen mes. Para la caja. Para nosotras, masacre.",
   ],
   estadisticas: CAKE_PHRASES,
   cuaderno: [
@@ -530,11 +565,78 @@ const SECTION_PHRASES = {
     "Una foto del ticket y a olvidar. Como conmigo.",
     "Tantas notas y ninguna dice 'salvad a la tarta'.",
     "Tus proveedores y yo tenemos algo en común: nos exprimen.",
+    "El cuaderno de los recados. Yo soy el recado que nadie quiere.",
+    "Guardas tickets como yo guardo rencor.",
+    "Aquí lo apuntas todo. Menos cómo me siento.",
+    "Cuántos contactos. Y yo sin que nadie me llame.",
+    "Más facturas que abrazos en este sitio.",
+    "Ordena tus papeles, que tu vida ya la veo ordenada.",
+    "Notas, fotos, contactos… un museo del estrés.",
   ],
   admin: [
     "Zona de jefes. Yo aquí no pinto nada (ni me dejan).",
     "Toqueteando ajustes, muy profesional todo.",
     "Cuidado con ese botón, que un día me borras a mí.",
+    "Mucho poder para tan poca piedad conmigo.",
+    "Ajustes, permisos, roles… y yo sin derechos.",
+    "El panel de control. Controla todo menos mi destino.",
+    "Toca lo que quieras, jefe. Total, aquí mando menos que el azúcar.",
+  ],
+};
+
+// Reacciones a acciones del usuario (la tarta comenta al momento)
+const REACTIONS = {
+  cierre: [
+    "¡WOW! Otro día cerrado. Yo sigo abierta en canal.",
+    "Otro día más en la mina del azúcar. Cuadrado.",
+    "Caja cerrada. Ojalá cerrar yo así de fácil.",
+    "Una rayita menos en el calendario… para todas.",
+    "Buen curro, jefa. Yo me voy a derretir un rato.",
+    "¡Toma! Dinero contado, penas también.",
+    "Día fichado. ¿Y mi finiquito?",
+    "Cierre guardado. La que no se guarda soy yo.",
+    "¡Bien! Otra jornada de vender alegría en porciones.",
+    "Cuadrado al céntimo. Mi vida sigue descuadrada.",
+    "Hecho. Mañana más bizcochos al matadero.",
+    "Caja a salvo. Las tartas… ya tal.",
+  ],
+  proveedor: [
+    "Otro contacto más para la agenda del crimen.",
+    "Un proveedor nuevo… otro que trae harina y desgracias.",
+    "Añadido. Pobre diablo, no sabe dónde se mete.",
+    "Más amigos para tu lista. Yo sigo sin ninguno.",
+    "Fichado. Otro cómplice en mi creación y mi final.",
+    "Contacto guardado. A mí guárdame un trozo, anda.",
+    "Uno más a la libreta. Qué popular eres, jo.",
+    "Nuevo proveedor. El que me trajo al mundo, supongo.",
+  ],
+  nota: [
+    "Anotado. Como si fueras a leerlo luego…",
+    "Otra nota. El cuaderno crece, yo encojo.",
+    "Apuntado, jefa. Mi terapeuta también toma notas.",
+    "Nota guardada. Ojalá guardar la compostura igual.",
+    "Apuntadísimo. Yo apunto maneras de deprimirme.",
+    "Escrito queda. Más que mi epitafio.",
+    "Otra nota mental que será papel mojado.",
+    "Listo. Recordatorio guardado, ilusiones no.",
+  ],
+  factura: [
+    "Clic. Otra prueba del crimen archivada.",
+    "Foto hecha. Salgo mejor yo, modestia aparte.",
+    "Ticket inmortalizado. Yo soy más bien mortal.",
+    "Guardada. Papeleo eterno, vida efímera.",
+    "¡Cheese! Bueno, más bien queso de la tarta de queso.",
+    "Factura a buen recaudo. Recáudame a mí un abrazo.",
+    "Foto subida. Ya somos dos cosas planas y tristes.",
+    "Archivada. El cajón de los recuerdos amargos.",
+  ],
+  borrar: [
+    "Fuera. Ojalá borrar los traumas así de rápido.",
+    "Eliminado. Qué fácil es desaparecer, ¿eh?",
+    "Adiós a eso. A mí también me quitarán de en medio.",
+    "Borrado y olvidado. Como mi cumpleaños.",
+    "Puf, ya no está. Ojalá esa paz.",
+    "Eliminado sin piedad. Me recuerda a mi destino.",
   ],
 };
 
@@ -790,6 +892,18 @@ function initMascot() {
     if (bobTween) bobTween.kill();
     if (el) { el.classList.remove("talking"); el.style.display = "none"; }
   }
+
+  // reacción inmediata a una acción (guardar cierre, añadir contacto/nota/factura, borrar)
+  function reactNow(kind) {
+    if (!active || !el || !bubble) return;
+    const arr = REACTIONS[kind]; if (!arr || !arr.length) return;
+    if (bubbleTimer) clearTimeout(bubbleTimer);
+    bubble.textContent = arr[Math.floor(Math.random() * arr.length)];
+    el.classList.add("talking");
+    if (hasGsap) gsap.fromTo(el.querySelector(".cm-cake"), { scale: 1 }, { scale: 1.28, duration: 0.16, yoyo: true, repeat: 1, ease: "power2.out", transformOrigin: "50% 100%" });
+    bubbleTimer = setTimeout(() => { el.classList.remove("talking"); bubbleTimer = setTimeout(nextPhrase, 2200); }, 4400);
+  }
+  window.addEventListener("casa:tarta", (e) => reactNow(e.detail && e.detail.kind));
 
   // cambiar de pestaña → cambia el repertorio y suelta una pulla
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => setTimeout(() => { setPool(); sayNow(500); }, 60)));

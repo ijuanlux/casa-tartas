@@ -25,6 +25,8 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 const fmtMoney = (n) => (Number(n || 0)).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
 const todayISO = () => new Date().toISOString().slice(0, 10);
+// avisa a la mascota tarta para que reaccione a una acción
+const tartaReact = (kind) => { try { window.dispatchEvent(new CustomEvent("casa:tarta", { detail: { kind } })); } catch (e) {} };
 
 // ===== Cola offline =====
 const QUEUE_KEY = "casa_tartas_pending_cierres";
@@ -336,7 +338,7 @@ $("#cierre-form").addEventListener("submit", async (e) => {
     }
 
     initCierreForm();
-    msg.textContent = "✓ Cierre guardado correctamente";
+    msg.textContent = "✓ Cierre guardado correctamente"; tartaReact("cierre");
     msg.className = "msg ok";
     msg.hidden = false;
   } catch (e) {
@@ -1110,7 +1112,7 @@ $("#factura-foto-form")?.addEventListener("submit", async (e) => {
     const { error } = await sb.from("facturas_foto").insert({ fecha, importe, descripcion: desc, path, user_id: me.id });
     if (error) throw error;
     e.target.reset(); $("#ff-file-name").textContent = "📷 Hacer foto / elegir imagen";
-    msg.textContent = "✓ Factura guardada"; msg.className = "msg ok"; msg.hidden = false;
+    msg.textContent = "✓ Factura guardada"; msg.className = "msg ok"; msg.hidden = false; tartaReact("factura");
     loadFacturasFoto();
   } catch (err) { msg.textContent = "Error: " + (err.message || err); msg.className = "msg err"; msg.hidden = false; }
 });
@@ -1146,7 +1148,7 @@ $("#proveedor-form")?.addEventListener("submit", async (e) => {
   const nombre = $("#pv-nombre").value.trim(); if (!nombre) return;
   const { error } = await sb.from("proveedores").insert({ nombre, telefono: $("#pv-tel").value.trim() || null, email: $("#pv-email").value.trim() || null, notas: $("#pv-notas").value.trim() || null });
   if (error) { alert(error.message); return; }
-  e.target.reset(); loadProveedores();
+  e.target.reset(); tartaReact("proveedor"); loadProveedores();
 });
 async function loadProveedores() {
   const cont = $("#proveedores-list"); if (!cont) return;
@@ -1170,7 +1172,7 @@ $("#nota-form")?.addEventListener("submit", async (e) => {
   const texto = $("#nota-texto").value.trim(); if (!texto) return;
   const { error } = await sb.from("notas").insert({ texto, user_id: me.id });
   if (error) { alert(error.message); return; }
-  e.target.reset(); loadNotas();
+  e.target.reset(); tartaReact("nota"); loadNotas();
 });
 async function loadNotas() {
   const cont = $("#notas-list"); if (!cont) return;
@@ -1189,7 +1191,7 @@ async function loadNotas() {
 }
 
 // ===== Visor / editor de fotos =====
-const fEd = { path: null, img: null, strokes: [], drawing: null, tool: "pan", pendingText: null, color: "#e4263b", size: 6, scale: 1, tx: 0, ty: 0 };
+const fEd = { path: null, img: null, strokes: [], drawing: null, movingText: null, tool: "pan", pendingText: null, color: "#e4263b", size: 6, scale: 1, tx: 0, ty: 0 };
 function fmTransform() { $("#fm-canvas").style.transform = `translate(${fEd.tx}px,${fEd.ty}px) scale(${fEd.scale})`; }
 function fmRedraw() {
   const cv = $("#fm-canvas"), ctx = cv.getContext("2d");
@@ -1280,21 +1282,39 @@ function openFotoEditor(path, url) {
       if (fEd.tool === "draw") fEd.drawing = { color: fEd.color, size: fEd.size, pts: [c] };
       else fEd.drawing = { type: fEd.tool, color: fEd.color, size: fEd.size, x0: c.x, y0: c.y, x1: c.x, y1: c.y };
       fEd.strokes.push(fEd.drawing); fmRedraw();
-    } else if (pts.size === 1) pan = { x: e.clientX, y: e.clientY, tx: fEd.tx, ty: fEd.ty };
-    else if (pts.size === 2) { const a = [...pts.values()]; pinch = { d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1, s: fEd.scale }; pan = null; fEd.drawing = null; }
+    } else if (pts.size === 1) {
+      const c = fmCoords(e); const t = hitText(c);    // en modo mover, si pulsas un texto, lo arrastras
+      if (t) { fEd.movingText = { s: t, dx: c.x - t.x, dy: c.y - t.y }; stage.style.cursor = "grabbing"; }
+      else pan = { x: e.clientX, y: e.clientY, tx: fEd.tx, ty: fEd.ty };
+    }
+    else if (pts.size === 2) { const a = [...pts.values()]; pinch = { d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1, s: fEd.scale }; pan = null; fEd.drawing = null; fEd.movingText = null; }
   });
   stage.addEventListener("pointermove", (e) => {
     if (!pts.has(e.pointerId)) return;
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (fEd.drawing && isShape() && pts.size === 1) {
+    if (fEd.movingText && pts.size === 1) {
+      const c = fmCoords(e); fEd.movingText.s.x = c.x - fEd.movingText.dx; fEd.movingText.s.y = c.y - fEd.movingText.dy; fmRedraw();
+    } else if (fEd.drawing && isShape() && pts.size === 1) {
       const c = fmCoords(e);
       if (fEd.tool === "draw") fEd.drawing.pts.push(c); else { fEd.drawing.x1 = c.x; fEd.drawing.y1 = c.y; }
       fmRedraw();
     } else if (pinch && pts.size >= 2) { const a = [...pts.values()]; const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); fEd.scale = Math.max(0.4, Math.min(6, pinch.s * d / pinch.d)); fmTransform(); }
     else if (pan && pts.size === 1) { fEd.tx = pan.tx + (e.clientX - pan.x); fEd.ty = pan.ty + (e.clientY - pan.y); fmTransform(); }
   });
-  const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; if (pts.size === 0) { pan = null; fEd.drawing = null; } };
+  const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; if (pts.size === 0) { pan = null; fEd.drawing = null; if (fEd.movingText) { fEd.movingText = null; stage.style.cursor = "grab"; } } };
   stage.addEventListener("pointerup", up); stage.addEventListener("pointercancel", up);
+
+  // ¿el punto (en coords de lienzo) cae sobre un texto? devuelve el texto más arriba
+  function hitText(c) {
+    const ctx = $("#fm-canvas").getContext("2d");
+    for (let i = fEd.strokes.length - 1; i >= 0; i--) {
+      const s = fEd.strokes[i]; if (s.type !== "text") continue;
+      const fs = Math.max(28, s.size * 4.5); ctx.font = `700 ${fs}px Fredoka, sans-serif`;
+      const w = ctx.measureText(s.text).width;
+      if (c.x >= s.x - 8 && c.x <= s.x + w + 8 && c.y >= s.y - 8 && c.y <= s.y + fs + 8) return s;
+    }
+    return null;
+  }
 })();
 
 // ===== Ficha de proveedor =====
