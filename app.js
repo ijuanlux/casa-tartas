@@ -548,6 +548,7 @@ function cssVar(name) { return getComputedStyle(document.documentElement).getPro
 const statsCaja = (r) => Number(r.tot_facturas || 0) + Number(r.tarjetas || 0) + Number(r.efectivo || 0);
 const statsSum = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
 let statsAll = [];
+let rangeActive = false;   // el filtro por calendario solo aplica al pulsar "Buscar"
 
 function mesLabel(ym) {
   const [y, m] = ym.split("-");
@@ -588,7 +589,7 @@ function renderStats() {
   const from = $("#stats-from").value, to = $("#stats-to").value;
   const month = $("#stats-month").value;
   const days = Number($("#stats-range").value || 0);
-  const hasRange = !!(from || to);
+  const hasRange = rangeActive && !!(from || to);
   $("#stats-range").disabled = hasRange || !!month;
   $("#stats-month").disabled = hasRange;
   const isoBack = (d) => new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);
@@ -774,12 +775,27 @@ function renderStats() {
     data: { labels: ["Suministros", "Pagos banco"], datasets: [{ data: [totalSumin, totalBanco], borderRadius: 8, borderSkipped: false, maxBarThickness: 90, backgroundColor: (c) => [vgrad(c.chart, PURPLE, hexA(PURPLE, 0.4)), vgrad(c.chart, GREEN, hexA(GREEN, 0.4))][c.dataIndex] }] },
     options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: moneyTip } } }, scales: { y: yMoney, x: xClean } },
   });
+
+  // foto de datos para el informe PDF (se redibuja en limpio, no se captura el dashboard)
+  window.__lastStats = {
+    period: statsPeriodLabel(),
+    kpi: { total: $("#kpi-total").textContent, count: $("#kpi-count").textContent, avg: $("#kpi-avg").textContent, best: $("#kpi-best").textContent, bestDate: $("#kpi-best-date").textContent, delta: ($("#kpi-delta") && !$("#kpi-delta").hidden) ? $("#kpi-delta").textContent : "" },
+    totals: { fact: totalFact, tarj: totalTarj, efec: totalEfec, banco: totalBanco, sumin: totalSumin, caja: totalCaja },
+    months, byMonth: { ...byMonth }, monthSel: month,
+    dateLabels: dates.map((d) => d.slice(5)), dateVals: dates.map((d) => byDate[d]),
+    localNames, localVals: localNames.map((n) => byLocal[n]),
+  };
+
+  // tras el layout, reajusta los gráficos a su celda (evita lienzos en blanco)
+  requestAnimationFrame(() => Object.values(charts).forEach((c) => { try { c.resize(); } catch (e) {} }));
+  setTimeout(() => Object.values(charts).forEach((c) => { try { c.resize(); } catch (e) {} }), 250);
 }
-$("#stats-range")?.addEventListener("change", renderStats);
-$("#stats-month")?.addEventListener("change", renderStats);
-$("#stats-from")?.addEventListener("change", renderStats);
-$("#stats-to")?.addEventListener("change", renderStats);
+function quickFilter() { rangeActive = false; renderStats(); }   // periodo/mes desactivan el modo fechas
+$("#stats-range")?.addEventListener("change", quickFilter);
+$("#stats-month")?.addEventListener("change", quickFilter);
+$("#stats-search")?.addEventListener("click", () => { rangeActive = true; renderStats(); });
 $("#stats-clear")?.addEventListener("click", () => {
+  rangeActive = false;
   $("#stats-from").value = ""; $("#stats-to").value = "";
   $("#stats-range").value = "0"; $("#stats-month").value = "";
   renderStats();
@@ -803,60 +819,100 @@ function imgToDataURL(url) {
   });
 }
 
+// dibuja una gráfica limpia en un canvas oculto y devuelve su PNG (no captura el dashboard)
+function pdfChart(type, w, h, data, options, plugins) {
+  const holder = document.createElement("div");
+  holder.style.cssText = "position:fixed;left:-99999px;top:0;width:" + w + "px;height:" + h + "px;";
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  holder.appendChild(cv); document.body.appendChild(holder);
+  const ch = new Chart(cv, { type, data, options: Object.assign({ responsive: false, animation: false, maintainAspectRatio: false }, options), plugins: plugins || [] });
+  ch.draw();
+  const url = cv.toDataURL("image/png");
+  ch.destroy(); holder.remove();
+  return { dataURL: url, w, h };
+}
+
 async function exportStatsPDF() {
   if (!window.jspdf || !window.jspdf.jsPDF) { alert("No se pudo cargar el generador de PDF."); return; }
-  if (!charts.comp) { alert("Abre las estadísticas un momento y vuelve a intentarlo."); return; }
+  const S = window.__lastStats;
+  if (!S) { alert("Abre las estadísticas un momento y vuelve a intentarlo."); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
-  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40;
-  const accent = hexToRgb(cssVar("--accent")), ink = hexToRgb(cssVar("--ink")), soft = hexToRgb(cssVar("--ink-soft"));
-  const bg = hexToRgb(cssVar("--bg")), cardC = hexToRgb(cssVar("--card"));
-  const pageBg = () => { doc.setFillColor(...bg); doc.rect(0, 0, W, H, "F"); };
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 40, CW = W - 2 * M;
+  const INK = [59, 42, 31], SOFT = [122, 91, 70], CARD = [255, 255, 255], BG = [250, 247, 242];
+  const ACCENT = hexToRgb(cssVar("--accent")) || [198, 75, 108];
+  const PINK = "#c64b6c", GOLD = "#f4c430", CREAM = "#e9b06a", BLUE = "#4f9bd6", PURPLE = "#9b7ed1", GREEN = "#3aa76d", TEAL = "#33b1a6";
+  const tick = "#7a5b46", gline = "rgba(0,0,0,.07)";
+  const num = (v) => (v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k" : v) + "€";
+  const scales = { y: { beginAtZero: true, grid: { color: gline }, ticks: { color: tick, callback: num, font: { size: 11 } } }, x: { grid: { display: false }, ticks: { color: tick, font: { size: 11 } } } };
+  const legend = { legend: { position: "bottom", labels: { color: INK, usePointStyle: true, pointStyle: "circle", padding: 14, font: { size: 12 } } } };
+  const center = (value, label) => ({
+    id: "c", afterDraw(ch) {
+      const a = ch.chartArea; if (!a) return; const x = (a.left + a.right) / 2, y = (a.top + a.bottom) / 2; const c = ch.ctx;
+      c.save(); c.textAlign = "center"; c.textBaseline = "middle";
+      c.font = "700 24px helvetica"; c.fillStyle = "#3b2a1f"; c.fillText(value, x, y - 9);
+      c.font = "600 12px helvetica"; c.fillStyle = "#7a5b46"; c.fillText(String(label).toUpperCase(), x, y + 14); c.restore();
+    },
+  });
+  const dough = (labels, data, colors, cv, cl) => pdfChart("doughnut", 480, 360,
+    { labels, datasets: [{ data, backgroundColor: colors, borderColor: "#fff", borderWidth: 3, borderRadius: 5, spacing: 2 }] },
+    { cutout: "66%", plugins: legend, layout: { padding: 10 } }, [center(cv, cl)]);
 
+  const imgMeses = pdfChart("bar", 1000, 320,
+    { labels: S.months.map((m) => mesLabel(m).replace(/ de \d+| \d+/, "")), datasets: [{ data: S.months.map((m) => S.byMonth[m]), backgroundColor: S.months.map((m) => (m === S.monthSel ? GOLD : PINK)), borderRadius: 6, borderSkipped: false, maxBarThickness: 70 }] },
+    { plugins: { legend: { display: false } }, scales, layout: { padding: 8 } });
+  const imgEvo = pdfChart("line", 1000, 320,
+    { labels: S.dateLabels, datasets: [{ data: S.dateVals, borderColor: PINK, borderWidth: 3, fill: true, backgroundColor: "rgba(198,75,108,.18)", tension: 0.4, pointRadius: 0 }] },
+    { plugins: { legend: { display: false } }, scales, layout: { padding: 8 } });
+  const imgComp = dough(["Facturas", "Tarjetas", "Efectivo"], [S.totals.fact, S.totals.tarj, S.totals.efec], [PINK, BLUE, CREAM], fmtMoney(S.totals.caja), "caja");
+  const imgPago = dough(["Tarjetas", "Efectivo"], [S.totals.tarj, S.totals.efec], [BLUE, GOLD], fmtMoney(S.totals.tarj + S.totals.efec), "cobrado");
+  const imgLoc = dough(S.localNames, S.localVals, [PINK, GOLD, BLUE, PURPLE, GREEN, TEAL, CREAM], String(S.localNames.length), S.localNames.length === 1 ? "local" : "locales");
+  const imgGastos = pdfChart("bar", 720, 360,
+    { labels: ["Suministros", "Pagos banco"], datasets: [{ data: [S.totals.sumin, S.totals.banco], backgroundColor: [PURPLE, GREEN], borderRadius: 6, borderSkipped: false, maxBarThickness: 130 }] },
+    { plugins: { legend: { display: false } }, scales, layout: { padding: 8 } });
+
+  const pageBg = () => { doc.setFillColor(...BG); doc.rect(0, 0, W, H, "F"); };
   pageBg();
-  // cabecera
-  doc.setFillColor(...accent); doc.rect(0, 0, W, 96, "F");
+  doc.setFillColor(...ACCENT); doc.rect(0, 0, W, 98, "F");
+  doc.setFillColor(244, 196, 48); doc.rect(0, 98, W, 4, "F");
   try {
     const logo = await imgToDataURL("./logo-casa-tartas.png");
-    doc.setFillColor(255, 255, 255); doc.roundedRect(M - 6, 22, 156, 52, 8, 8, "F");
-    const f = fitBox(logo.w, logo.h, 140, 40);
-    doc.addImage(logo.dataURL, "PNG", M - 6 + (156 - f.w) / 2, 22 + (52 - f.h) / 2, f.w, f.h);
+    doc.setFillColor(255, 255, 255); doc.roundedRect(M, 22, 150, 54, 10, 10, "F");
+    const f = fitBox(logo.w, logo.h, 130, 40); doc.addImage(logo.dataURL, "PNG", M + (150 - f.w) / 2, 22 + (54 - f.h) / 2, f.w, f.h);
   } catch (e) {}
   doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.text("Informe de caja", W - M, 44, { align: "right" });
-  doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.text(statsPeriodLabel(), W - M, 64, { align: "right" });
+  doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("Informe de caja", W - M, 46, { align: "right" });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.text(S.period, W - M, 66, { align: "right" });
+  doc.setFontSize(9);
   const hoy = new Date().toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
-  doc.text("Generado el " + hoy, W - M, 80, { align: "right" });
+  doc.text("Generado el " + hoy, W - M, 83, { align: "right" });
 
-  let y = 120;
-  const kpis = [["Total caja", $("#kpi-total").textContent], ["Cierres", $("#kpi-count").textContent], ["Media/cierre", $("#kpi-avg").textContent], ["Mejor día", $("#kpi-best").textContent]];
-  const kw = (W - 2 * M - 30) / 4;
+  let y = 126;
+  const kpis = [["Total caja", S.kpi.total, S.kpi.delta], ["Cierres", S.kpi.count, ""], ["Media/cierre", S.kpi.avg, ""], ["Mejor día", S.kpi.best, S.kpi.bestDate]];
+  const kw = (CW - 30) / 4;
   kpis.forEach((k, i) => {
     const x = M + i * (kw + 10);
-    doc.setFillColor(...cardC); doc.roundedRect(x, y, kw, 56, 8, 8, "F");
-    doc.setTextColor(...soft); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text(k[0].toUpperCase(), x + 10, y + 18);
-    doc.setTextColor(...accent); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(String(k[1]), x + 10, y + 40);
+    doc.setFillColor(...CARD); doc.roundedRect(x, y, kw, 60, 8, 8, "F");
+    doc.setFillColor(...ACCENT); doc.roundedRect(x, y, 4, 60, 2, 2, "F");
+    doc.setTextColor(...SOFT); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text(String(k[0]).toUpperCase(), x + 12, y + 18);
+    doc.setTextColor(...ACCENT); doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.text(String(k[1]), x + 12, y + 40);
+    if (k[2]) { doc.setTextColor(...SOFT); doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.text(String(k[2]), x + 12, y + 53); }
   });
-  y += 56 + 16;
+  y += 60 + 18;
 
-  const addChart = (chart, title, h) => {
-    if (!chart) return;
-    if (y + h + 34 > H - 36) { doc.addPage(); pageBg(); y = 40; }
-    doc.setFillColor(...cardC); doc.roundedRect(M, y, W - 2 * M, h + 32, 8, 8, "F");
-    doc.setTextColor(...ink); doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.text(title, M + 12, y + 20);
-    try {
-      const img = chart.toBase64Image("image/png", 1);
-      const f = fitBox(chart.width || 600, chart.height || 300, W - 2 * M - 24, h);
-      doc.addImage(img, "PNG", M + (W - 2 * M - f.w) / 2, y + 26, f.w, f.h);
-    } catch (e) {}
-    y += h + 32 + 14;
+  const card = (title, img, x, w, h) => {
+    doc.setFillColor(...CARD); doc.roundedRect(x, y, w, h, 8, 8, "F");
+    doc.setTextColor(...INK); doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.text(title, x + 12, y + 20);
+    const f = fitBox(img.w, img.h, w - 22, h - 36);
+    doc.addImage(img.dataURL, "PNG", x + (w - f.w) / 2, y + 28 + (h - 36 - f.h) / 2, f.w, f.h);
   };
-  addChart(charts.meses, "Caja por mes", 170);
-  addChart(charts.evo, $("#evo-title").textContent || "Evolución de la caja", 160);
-  addChart(charts.comp, "Composición de la caja", 200);
-  addChart(charts.pago, "Tarjeta vs Efectivo", 200);
-  addChart(charts.loc, "Caja por local", 200);
-  addChart(charts.gastos, "Gastos: suministros y banco", 150);
+  const rowFull = (title, img, h) => { if (y + h > H - 36) { doc.addPage(); pageBg(); y = 40; } card(title, img, M, CW, h); y += h + 14; };
+  const rowHalf = (t1, i1, t2, i2, h) => { if (y + h > H - 36) { doc.addPage(); pageBg(); y = 40; } const hw = (CW - 14) / 2; card(t1, i1, M, hw, h); card(t2, i2, M + hw + 14, hw, h); y += h + 14; };
+
+  rowFull("Caja por mes", imgMeses, 175);
+  rowFull(S.monthSel ? "Evolución diaria" : "Evolución de la caja", imgEvo, 165);
+  rowHalf("Composición de la caja", imgComp, "Tarjeta vs Efectivo", imgPago, 210);
+  rowHalf("Caja por local", imgLoc, "Gastos: suministros y banco", imgGastos, 210);
 
   doc.save("informe-casa-tartas.pdf");
 }

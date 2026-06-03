@@ -189,7 +189,9 @@ body.login-mode, body.login-mode * { cursor: none; }
 .kpi-delta { font-size: 0.76rem; font-weight: 600; margin-top: 2px; }
 .kpi-delta.up { color: var(--ok); }
 .kpi-delta.down { color: var(--err); }
-.stats-clear { padding: 6px 12px; align-self: flex-end; }
+.stats-filters { align-items: flex-end; }
+.stats-btn { height: 40px; padding: 0 14px; white-space: nowrap; }
+.stats-spacer { flex: 1 1 auto; }
 @media (max-width: 720px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
 
 .dash-tip { max-width: 1180px; margin: 0 auto 8px; padding: 0 4px; font-size: 0.85rem; color: var(--ink-soft); }
@@ -197,7 +199,7 @@ body.login-mode, body.login-mode * { cursor: none; }
 
 /* ====== Dashboard GridStack (look Grafana-pro) ====== */
 .grid-stack { max-width: 1180px; margin: 0 auto 28px; }
-.grid-stack-item-content { border-radius: var(--radius); overflow: visible; }
+.grid-stack-item-content { inset: 0; overflow: hidden !important; border-radius: var(--radius); }
 .chart-card {
   margin: 0; height: 100%; width: 100%; display: flex; flex-direction: column;
   padding: 14px 16px 12px; position: relative; overflow: hidden; border: 1px solid var(--line);
@@ -208,7 +210,7 @@ body.login-mode, body.login-mode * { cursor: none; }
 }
 .chart-head { margin-bottom: 8px; flex-shrink: 0; }
 .chart-head h3 { margin: 0; font-family: 'Fredoka', sans-serif; font-size: 1rem; display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
-.chart-box { position: relative; flex: 1; min-height: 0; }
+.chart-box { position: relative; flex: 1 1 auto; min-height: 130px; }
 .drag-handle { cursor: grab; user-select: none; -webkit-user-select: none; touch-action: none; }
 .drag-handle:active { cursor: grabbing; }
 .grip { color: var(--ink-soft); margin-right: 6px; letter-spacing: -2px; }
