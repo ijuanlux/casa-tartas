@@ -916,10 +916,24 @@ async function exportStatsPDF() {
   const rowFull = (title, img, h) => { if (y + h > H - 36) { doc.addPage(); pageBg(); y = 40; } card(title, img, M, CW, h); y += h + 14; };
   const rowHalf = (t1, i1, t2, i2, h) => { if (y + h > H - 36) { doc.addPage(); pageBg(); y = 40; } const hw = (CW - 14) / 2; card(t1, i1, M, hw, h); card(t2, i2, M + hw + 14, hw, h); y += h + 14; };
 
-  rowFull("Caja por mes", imgMeses, 175);
-  rowFull(S.monthSel ? "Evolución diaria" : "Evolución de la caja", imgEvo, 165);
-  rowHalf("Composición de la caja", imgComp, "Tarjeta vs Efectivo", imgPago, 210);
-  rowHalf("Caja por local", imgLoc, "Gastos: suministros y banco", imgGastos, 210);
+  // Página 1: KPIs + tendencias grandes
+  rowFull("Caja por mes", imgMeses, 212);
+  rowFull(S.monthSel ? "Evolución diaria" : "Evolución de la caja", imgEvo, 200);
+
+  // Página 2: desglose 2x2 que llena la hoja
+  doc.addPage(); pageBg(); y = 46;
+  doc.setTextColor(...INK); doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.text("Desglose de la caja", M, y); y = 62;
+  rowHalf("Composición de la caja", imgComp, "Tarjeta vs Efectivo", imgPago, 332);
+  rowHalf("Caja por local", imgLoc, "Gastos: suministros y banco", imgGastos, 332);
+
+  // pie de página en todas
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setTextColor(...SOFT); doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+    doc.text("La Casa de las Tartas", M, H - 22);
+    doc.text(`Página ${p} de ${pages}`, W - M, H - 22, { align: "right" });
+  }
 
   doc.save("informe-casa-tartas.pdf");
 }
@@ -1055,6 +1069,25 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 
 function loadCuaderno() { loadFacturasFoto(); loadProveedores(); loadNotas(); }
 
+// comprime/redimensiona la foto antes de subir (ahorra muchísimo espacio en Storage)
+function compressImage(file, maxDim = 1280, quality = 0.7) {
+  return new Promise((resolve) => {
+    if (!file.type || !file.type.startsWith("image/")) { resolve(file); return; }
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+      else if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+      const c = document.createElement("canvas"); c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      c.toBlob((blob) => resolve(blob || file), "image/jpeg", quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 // --- Facturas con foto ---
 $("#ff-file")?.addEventListener("change", () => {
   const f = $("#ff-file").files[0];
@@ -1068,11 +1101,11 @@ $("#factura-foto-form")?.addEventListener("submit", async (e) => {
   const fecha = $("#ff-fecha").value || todayISO();
   const importe = Number($("#ff-importe").value || 0);
   const desc = $("#ff-desc").value.trim() || null;
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const path = `${me.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+  const path = `${me.id}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
   msg.textContent = "Subiendo…"; msg.className = "msg"; msg.hidden = false;
   try {
-    const { error: upErr } = await sb.storage.from("facturas").upload(path, file, { contentType: file.type || "image/jpeg" });
+    const blob = await compressImage(file);
+    const { error: upErr } = await sb.storage.from("facturas").upload(path, blob, { contentType: "image/jpeg" });
     if (upErr) throw upErr;
     const { error } = await sb.from("facturas_foto").insert({ fecha, importe, descripcion: desc, path, user_id: me.id });
     if (error) throw error;
