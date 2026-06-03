@@ -130,6 +130,7 @@
       <nav class="tabs">
         <button data-tab="nuevo" class="tab active">Nuevo cierre</button>
         <button data-tab="historico" class="tab">Histórico</button>
+        <button data-tab="estadisticas" class="tab">📊 Estadísticas</button>
         <button data-tab="admin" class="tab admin-only" hidden>Admin</button>
       </nav>
       <div class="topbar-user">
@@ -261,6 +262,53 @@
       </div>
     </section>
 
+    <!-- TAB: ESTADÍSTICAS -->
+    <section id="tab-estadisticas" class="tab-panel" hidden>
+      <div class="stats-head">
+        <h2>📊 Panel de estadísticas</h2>
+        <label class="stats-range">
+          Periodo
+          <select id="stats-range">
+            <option value="0">Todo</option>
+            <option value="30">Últimos 30 días</option>
+            <option value="90">Últimos 90 días</option>
+            <option value="365">Último año</option>
+          </select>
+        </label>
+      </div>
+      <div id="stats-empty" class="card" hidden><p class="hint">Aún no hay cierres para sacar estadísticas. ¡Mete alguno y vuelve!</p></div>
+      <div id="stats-content">
+        <div class="kpi-grid">
+          <div class="kpi"><span class="kpi-label">Total caja</span><span class="kpi-val" id="kpi-total">—</span></div>
+          <div class="kpi"><span class="kpi-label">Cierres</span><span class="kpi-val" id="kpi-count">—</span></div>
+          <div class="kpi"><span class="kpi-label">Media por cierre</span><span class="kpi-val" id="kpi-avg">—</span></div>
+          <div class="kpi"><span class="kpi-label">Mejor día</span><span class="kpi-val" id="kpi-best">—</span><span class="kpi-sub" id="kpi-best-date"></span></div>
+        </div>
+        <div class="charts-grid">
+          <div class="card chart-card">
+            <h3>Composición de la caja</h3>
+            <div class="chart-box"><canvas id="chart-composicion"></canvas></div>
+          </div>
+          <div class="card chart-card">
+            <h3>Caja por local</h3>
+            <div class="chart-box"><canvas id="chart-locales"></canvas></div>
+          </div>
+          <div class="card chart-card chart-wide">
+            <h3>Evolución de la caja</h3>
+            <div class="chart-box"><canvas id="chart-evolucion"></canvas></div>
+          </div>
+          <div class="card chart-card">
+            <h3>Tarjeta vs Efectivo</h3>
+            <div class="chart-box"><canvas id="chart-pago"></canvas></div>
+          </div>
+          <div class="card chart-card">
+            <h3>Gastos: suministros y banco</h3>
+            <div class="chart-box"><canvas id="chart-gastos"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- TAB: ADMIN -->
     <section id="tab-admin" class="tab-panel admin-only" hidden>
       <div class="card">
@@ -310,6 +358,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="./config.js"></script>
   <script src="./app.js" type="module"></script>
   <script src="./pepino.js" type="module"></script>

@@ -120,9 +120,11 @@ function setTab(tab) {
   $$(".tab").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
   $("#tab-nuevo").hidden = tab !== "nuevo";
   $("#tab-historico").hidden = tab !== "historico";
+  $("#tab-estadisticas").hidden = tab !== "estadisticas";
   $("#tab-admin").hidden = tab !== "admin";
-  if (tab === "historico") loadHistorico();
-  if (tab === "admin")    loadAdmin();
+  if (tab === "historico")    loadHistorico();
+  if (tab === "estadisticas") loadEstadisticas();
+  if (tab === "admin")        loadAdmin();
 }
 
 // ===== Auth =====
@@ -537,6 +539,98 @@ async function openDetalle(id) {
 
   $("#detalle-modal").showModal();
 }
+
+// ===== Estadísticas =====
+const charts = {};
+function destroyCharts() { Object.values(charts).forEach(c => { try { c.destroy(); } catch (e) {} }); }
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+async function loadEstadisticas() {
+  if (typeof Chart === "undefined") { console.warn("Chart.js no cargó"); return; }
+  const days = Number($("#stats-range").value || 0);
+  let q = sb.from("cierres")
+    .select("fecha, tot_facturas, tarjetas, efectivo, tot_caja, pagos_banco, tot_suministros, local_id, locales(nombre)")
+    .order("fecha", { ascending: true })
+    .limit(2000);
+  if (days > 0) {
+    const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+    q = q.gte("fecha", from);
+  }
+  let rows = [];
+  try { const { data, error } = await q; if (error) throw error; rows = data || []; }
+  catch (e) { console.warn("estadisticas error", e); }
+
+  const has = rows.length > 0;
+  $("#stats-empty").hidden = has;
+  $("#stats-content").hidden = !has;
+  if (!has) { destroyCharts(); return; }
+
+  const caja = (r) => Number(r.tot_facturas || 0) + Number(r.tarjetas || 0) + Number(r.efectivo || 0);
+  const sum = (arr, f) => arr.reduce((s, x) => s + f(x), 0);
+
+  const totalCaja = sum(rows, caja);
+  const totalFact = sum(rows, (r) => Number(r.tot_facturas || 0));
+  const totalTarj = sum(rows, (r) => Number(r.tarjetas || 0));
+  const totalEfec = sum(rows, (r) => Number(r.efectivo || 0));
+  const totalBanco = sum(rows, (r) => Number(r.pagos_banco || 0));
+  const totalSum = sum(rows, (r) => Number(r.tot_suministros || 0));
+
+  // KPIs
+  $("#kpi-total").textContent = fmtMoney(totalCaja);
+  $("#kpi-count").textContent = rows.length;
+  $("#kpi-avg").textContent = fmtMoney(totalCaja / rows.length);
+  let best = rows[0];
+  rows.forEach((r) => { if (caja(r) > caja(best)) best = r; });
+  $("#kpi-best").textContent = fmtMoney(caja(best));
+  $("#kpi-best-date").textContent = best.fecha + (best.locales?.nombre ? " · " + best.locales.nombre : "");
+
+  // colores y tema
+  const ink = cssVar("--ink") || "#3b2a1f";
+  const line = cssVar("--line") || "#e7d3b8";
+  const card = cssVar("--card") || "#fff";
+  Chart.defaults.color = ink;
+  if (Chart.defaults.font) Chart.defaults.font.family = "Fredoka, sans-serif";
+  const PINK = "#c64b6c", GOLD = "#f4c430", CREAM = "#f0c896", BLUE = "#4f9bd6", PURPLE = "#9b7ed1", GREEN = "#3aa76d";
+
+  destroyCharts();
+
+  charts.comp = new Chart($("#chart-composicion"), {
+    type: "doughnut",
+    data: { labels: ["Facturas", "Tarjetas", "Efectivo"], datasets: [{ data: [totalFact, totalTarj, totalEfec], backgroundColor: [PINK, BLUE, CREAM], borderWidth: 2, borderColor: card }] },
+    options: { plugins: { legend: { position: "bottom" } }, cutout: "58%" },
+  });
+
+  const byLocal = {};
+  rows.forEach((r) => { const n = r.locales?.nombre || ("Local " + r.local_id); byLocal[n] = (byLocal[n] || 0) + caja(r); });
+  const localNames = Object.keys(byLocal);
+  charts.loc = new Chart($("#chart-locales"), {
+    type: "pie",
+    data: { labels: localNames, datasets: [{ data: localNames.map((n) => byLocal[n]), backgroundColor: [PINK, GOLD, BLUE, PURPLE, GREEN, CREAM], borderWidth: 2, borderColor: card }] },
+    options: { plugins: { legend: { position: "bottom" } } },
+  });
+
+  const byDate = {};
+  rows.forEach((r) => { byDate[r.fecha] = (byDate[r.fecha] || 0) + caja(r); });
+  const dates = Object.keys(byDate).sort();
+  charts.evo = new Chart($("#chart-evolucion"), {
+    type: "line",
+    data: { labels: dates, datasets: [{ label: "Caja", data: dates.map((d) => byDate[d]), borderColor: PINK, backgroundColor: "rgba(198,75,108,.15)", fill: true, tension: 0.35, pointRadius: 3 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: line } }, x: { grid: { display: false } } } },
+  });
+
+  charts.pago = new Chart($("#chart-pago"), {
+    type: "doughnut",
+    data: { labels: ["Tarjetas", "Efectivo"], datasets: [{ data: [totalTarj, totalEfec], backgroundColor: [BLUE, GOLD], borderWidth: 2, borderColor: card }] },
+    options: { plugins: { legend: { position: "bottom" } }, cutout: "58%" },
+  });
+
+  charts.gastos = new Chart($("#chart-gastos"), {
+    type: "bar",
+    data: { labels: ["Suministros", "Pagos banco"], datasets: [{ data: [totalSum, totalBanco], backgroundColor: [PURPLE, GREEN], borderRadius: 8 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: line } }, x: { grid: { display: false } } } },
+  });
+}
+$("#stats-range")?.addEventListener("change", loadEstadisticas);
 
 // ===== Admin =====
 async function loadAdmin() {

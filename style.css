@@ -167,6 +167,44 @@ body.login-mode, body.login-mode * { cursor: none; }
 .topbar-brand { font-family: 'Fredoka', sans-serif; }
 .hist-error { color: var(--err); font-weight: 600; }
 
+/* ====== ESTADÍSTICAS ====== */
+.stats-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; max-width: 1100px; margin: 16px auto 0; padding: 0 4px; }
+.stats-head h2 { margin: 0; font-family: 'Fredoka', sans-serif; }
+.stats-range { margin: 0; display: flex; align-items: center; gap: 8px; }
+.stats-range select { width: auto; margin-top: 0; }
+
+.kpi-grid { max-width: 1100px; margin: 16px auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 0 4px; }
+.kpi { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.kpi-label { font-size: 0.82rem; color: var(--ink-soft); }
+.kpi-val { font-family: 'Fredoka', sans-serif; font-weight: 700; font-size: 1.5rem; color: var(--accent-dark); }
+.kpi-sub { font-size: 0.78rem; color: var(--ink-soft); }
+@media (max-width: 720px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.charts-grid { max-width: 1100px; margin: 0 auto 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 4px; }
+.chart-card { margin: 0; }
+.chart-card h3 { margin: 0 0 12px; font-family: 'Fredoka', sans-serif; font-size: 1.05rem; }
+.chart-wide { grid-column: 1 / -1; }
+.chart-box { position: relative; height: 260px; }
+.chart-wide .chart-box { height: 300px; }
+@media (max-width: 720px) { .charts-grid { grid-template-columns: 1fr; } .chart-wide { grid-column: auto; } }
+
+/* ====== Mascota tarta deprimida ====== */
+.cake-mascot { position: fixed; bottom: 16px; left: 16px; z-index: 60; width: 96px; pointer-events: none; will-change: transform; }
+.cake-mascot .cm-cake { width: 100%; height: auto; display: block; filter: drop-shadow(0 8px 14px rgba(0,0,0,0.25)); }
+.cake-mascot .cm-bubble {
+  position: absolute; bottom: 100%; left: 50%; transform: translate(-50%, -8px);
+  background: var(--card); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 14px; padding: 10px 14px; font-size: 0.9rem; line-height: 1.25;
+  width: max-content; max-width: 230px; text-align: center; box-shadow: var(--shadow);
+  opacity: 0; transition: opacity .3s ease, transform .3s ease;
+}
+.cake-mascot .cm-bubble::after {
+  content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  border: 8px solid transparent; border-top-color: var(--card);
+}
+.cake-mascot.talking .cm-bubble { opacity: 1; transform: translate(-50%, -14px); }
+@media (max-width: 560px) { .cake-mascot { width: 72px; } .cake-mascot .cm-bubble { max-width: 180px; font-size: 0.82rem; } }
+
 /* ============ CARDS / GENERAL ============ */
 .card {
   background: var(--card);

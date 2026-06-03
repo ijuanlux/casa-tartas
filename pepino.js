@@ -479,6 +479,107 @@ function initGame() {
 }
 
 /* ============================================================
+   8. MASCOTA: tarta deprimida que deambula soltando frases
+   ============================================================ */
+const CAKE_PHRASES = [
+  "Molaba más cuando me vestían de chocolate",
+  "Que te claven velas a ver si te ríes tú",
+  "Ahora entiendo a los pobres toros",
+  "Cada cumpleaños es el día de mi funeral",
+  "Me cortan en porciones y lo llaman cariño",
+  "180 grados de horno y ni las gracias",
+  "Llevo nata por fuera y rencor por dentro",
+  "Spoiler: la cereza no dio su consentimiento",
+  "Un soplido más en la cara y os denuncio",
+  "Nací para la fiesta y muero en la fiesta",
+  "El glaseado tapa el dolor, no lo cura",
+  "¿Otra vez 'pide un deseo'? Pídetelo tú",
+  "Hoy alguien me clava un cuchillo y aplauden",
+  "De mayor quería ser tarta nupcial. Miradme",
+  "Cuento billetes pa' no contar mis penas",
+  "Me hicieron con amor y mantequilla. Sobre todo mantequilla",
+  "Engordo a la gente y luego me odian. Injusto",
+  "Llevo aquí desde las 6am, como el pan. Literal",
+];
+
+function buildMascot() {
+  const el = document.createElement("div");
+  el.className = "cake-mascot";
+  el.innerHTML = `
+    <div class="cm-bubble"></div>
+    <svg class="cm-cake" viewBox="0 0 100 104" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <ellipse cx="50" cy="97" rx="34" ry="6" fill="rgba(0,0,0,.18)"/>
+      <rect x="20" y="56" width="60" height="36" rx="11" fill="#f3d8ac"/>
+      <rect x="20" y="72" width="60" height="6" fill="#fff4e2" opacity=".7"/>
+      <path d="M20 52 h60 v6 a11 11 0 0 1 -22 0 a11 11 0 0 1 -22 0 a11 11 0 0 1 -16 0 z" fill="#ff7fa6"/>
+      <rect x="47" y="30" width="6" height="20" rx="2" fill="#ff5e8a"/>
+      <circle class="cm-flame" cx="50" cy="27" r="4" fill="#ffd24a"/>
+      <path d="M37 70 q4 4 8 0" fill="none" stroke="#7a4b2a" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M55 70 q4 4 8 0" fill="none" stroke="#7a4b2a" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M42 82 q8 -5 16 0" fill="none" stroke="#7a4b2a" stroke-width="2.4" stroke-linecap="round"/>
+    </svg>`;
+  document.body.appendChild(el);
+  return el;
+}
+
+function initMascot() {
+  const panel = $("#tab-estadisticas");
+  if (!panel) return;
+  let el = null, bubble = null, active = false;
+  let bubbleTimer = null, wanderTween = null, bobTween = null, lastPhrase = -1;
+
+  function nextPhrase() {
+    if (!active) return;
+    let i;
+    do { i = Math.floor(Math.random() * CAKE_PHRASES.length); } while (i === lastPhrase && CAKE_PHRASES.length > 1);
+    lastPhrase = i;
+    bubble.textContent = CAKE_PHRASES[i];
+    el.classList.add("talking");
+    bubbleTimer = setTimeout(() => {
+      el.classList.remove("talking");
+      bubbleTimer = setTimeout(nextPhrase, 1600);
+    }, 4200);
+  }
+
+  function wander() {
+    if (!active || !hasGsap) return;
+    const w = el.offsetWidth || 96;
+    const maxX = Math.max(0, innerWidth - w - 32);
+    const tx = Math.random() * maxX;
+    wanderTween = gsap.to(el, {
+      x: tx, duration: 4 + Math.random() * 3, ease: "sine.inOut",
+      onComplete: wander,
+    });
+  }
+
+  function start() {
+    if (active) return;
+    active = true;
+    if (!el) { el = buildMascot(); bubble = el.querySelector(".cm-bubble"); }
+    el.style.display = "block";
+    if (hasGsap) {
+      gsap.set(el, { x: 0 });
+      bobTween = gsap.to(el.querySelector(".cm-cake"), { y: -8, rotation: 2, duration: 1.3, yoyo: true, repeat: -1, ease: "sine.inOut", transformOrigin: "50% 100%" });
+      wander();
+    }
+    bubbleTimer = setTimeout(nextPhrase, 900);
+  }
+
+  function stop() {
+    if (!active) return;
+    active = false;
+    if (bubbleTimer) clearTimeout(bubbleTimer);
+    if (wanderTween) wanderTween.kill();
+    if (bobTween) bobTween.kill();
+    if (el) { el.classList.remove("talking"); el.style.display = "none"; }
+  }
+
+  new MutationObserver(() => { panel.hidden ? stop() : start(); })
+    .observe(panel, { attributes: true, attributeFilter: ["hidden"] });
+  if (!panel.hidden) start();
+}
+
+/* ============================================================
    BOOT
    ============================================================ */
 function boot() {
@@ -487,6 +588,7 @@ function boot() {
   initCursor();
   observeLogin();
   initGame();
+  initMascot();
   initLoginBg();
   window.addEventListener("casa:login-success", loginTransition);
 }
