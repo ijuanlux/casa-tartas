@@ -1189,7 +1189,7 @@ async function loadNotas() {
 }
 
 // ===== Visor / editor de fotos =====
-const fEd = { path: null, img: null, strokes: [], drawing: null, draw: false, color: "#e4263b", size: 6, scale: 1, tx: 0, ty: 0 };
+const fEd = { path: null, img: null, strokes: [], drawing: null, draw: false, pendingText: null, color: "#e4263b", size: 6, scale: 1, tx: 0, ty: 0 };
 function fmTransform() { $("#fm-canvas").style.transform = `translate(${fEd.tx}px,${fEd.ty}px) scale(${fEd.scale})`; }
 function fmRedraw() {
   const cv = $("#fm-canvas"), ctx = cv.getContext("2d");
@@ -1198,14 +1198,20 @@ function fmRedraw() {
   ctx.lineCap = "round"; ctx.lineJoin = "round";
   for (const s of fEd.strokes) {
     ctx.strokeStyle = s.color; ctx.fillStyle = s.color; ctx.lineWidth = s.size;
-    if (s.pts.length === 1) { ctx.beginPath(); ctx.arc(s.pts[0].x, s.pts[0].y, s.size / 2, 0, 7); ctx.fill(); }
+    if (s.type === "text") {
+      const fs = Math.max(28, s.size * 4.5);
+      ctx.font = `700 ${fs}px Fredoka, sans-serif`; ctx.textBaseline = "top";
+      ctx.lineWidth = Math.max(3, fs / 8); ctx.strokeStyle = "rgba(255,255,255,.9)";
+      ctx.strokeText(s.text, s.x, s.y); ctx.fillStyle = s.color; ctx.fillText(s.text, s.x, s.y);
+    } else if (s.pts.length === 1) { ctx.beginPath(); ctx.arc(s.pts[0].x, s.pts[0].y, s.size / 2, 0, 7); ctx.fill(); }
     else { ctx.beginPath(); s.pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke(); }
   }
 }
 function fmFit() { fEd.scale = 1; fEd.tx = 0; fEd.ty = 0; fmTransform(); }
 function fmCoords(e) { const cv = $("#fm-canvas"), r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; }
 function openFotoEditor(path, url) {
-  fEd.path = path; fEd.strokes = []; fEd.draw = false; $(".fm-draw")?.classList.remove("on");
+  fEd.path = path; fEd.strokes = []; fEd.draw = false; fEd.pendingText = null;
+  $(".fm-draw")?.classList.remove("on"); $(".fm-text")?.classList.remove("on");
   $(".fm-stage").style.cursor = "grab";
   const img = new Image(); img.crossOrigin = "anonymous";
   img.onload = () => {
@@ -1228,7 +1234,12 @@ function openFotoEditor(path, url) {
     if (a === "zoomin") { fEd.scale = Math.min(6, fEd.scale * 1.25); fmTransform(); }
     else if (a === "zoomout") { fEd.scale = Math.max(0.4, fEd.scale / 1.25); fmTransform(); }
     else if (a === "fit") fmFit();
-    else if (a === "draw") { fEd.draw = !fEd.draw; b.classList.toggle("on", fEd.draw); stage.style.cursor = fEd.draw ? "crosshair" : "grab"; }
+    else if (a === "draw") { fEd.draw = !fEd.draw; fEd.pendingText = null; modal.querySelector(".fm-text").classList.remove("on"); b.classList.toggle("on", fEd.draw); stage.style.cursor = fEd.draw ? "crosshair" : "grab"; }
+    else if (a === "text") {
+      const t = prompt("Texto a incrustar:"); if (!t) return;
+      fEd.pendingText = t; fEd.draw = false; modal.querySelector(".fm-draw").classList.remove("on");
+      b.classList.add("on"); stage.style.cursor = "text";
+    }
     else if (a === "size") { fEd.size = fEd.size >= 16 ? 4 : fEd.size + 6; }
     else if (a === "undo") { fEd.strokes.pop(); fmRedraw(); }
     else if (a === "close") modal.close();
@@ -1241,7 +1252,14 @@ function openFotoEditor(path, url) {
   });
   modal.querySelector(".fm-color").addEventListener("input", (e) => { fEd.color = e.target.value; });
   stage.addEventListener("pointerdown", (e) => {
-    e.preventDefault(); stage.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+    if (fEd.pendingText) {   // colocar texto donde se pulsa
+      const c = fmCoords(e);
+      fEd.strokes.push({ type: "text", x: c.x, y: c.y, text: fEd.pendingText, color: fEd.color, size: fEd.size });
+      fEd.pendingText = null; modal.querySelector(".fm-text").classList.remove("on");
+      stage.style.cursor = fEd.draw ? "crosshair" : "grab"; fmRedraw(); return;
+    }
+    stage.setPointerCapture?.(e.pointerId);
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (fEd.draw && pts.size === 1) { fEd.drawing = { color: fEd.color, size: fEd.size, pts: [fmCoords(e)] }; fEd.strokes.push(fEd.drawing); fmRedraw(); }
     else if (pts.size === 1) pan = { x: e.clientX, y: e.clientY, tx: fEd.tx, ty: fEd.ty };
