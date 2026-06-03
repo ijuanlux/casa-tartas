@@ -26,7 +26,7 @@ const $$ = (sel) => document.querySelectorAll(sel);
 const fmtMoney = (n) => (Number(n || 0)).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
 const todayISO = () => new Date().toISOString().slice(0, 10);
 // avisa a la mascota tarta para que reaccione a una acción
-const tartaReact = (kind) => { try { window.dispatchEvent(new CustomEvent("casa:tarta", { detail: { kind } })); } catch (e) {} };
+const tartaReact = (kind, extra) => { try { window.dispatchEvent(new CustomEvent("casa:tarta", { detail: { kind, ...(extra || {}) } })); } catch (e) {} };
 
 // ===== Cola offline =====
 const QUEUE_KEY = "casa_tartas_pending_cierres";
@@ -338,7 +338,7 @@ $("#cierre-form").addEventListener("submit", async (e) => {
     }
 
     initCierreForm();
-    msg.textContent = "✓ Cierre guardado correctamente"; tartaReact("cierre");
+    msg.textContent = "✓ Cierre guardado correctamente"; tartaReact("cierre", { amount: tot_facturas + tarjetas + efectivo });
     msg.className = "msg ok";
     msg.hidden = false;
   } catch (e) {
@@ -974,6 +974,31 @@ function parseSpanishMonth(t) {
 async function casaQuery(question) {
   const t = (question || "").toLowerCase().trim();
   if (!t) return "Pregúntame algo 🙂";
+
+  // --- Proveedores / contactos ---
+  if (/proveedor|contacto|tel[eé]fono|\bemail\b|correo|n[uú]mero de|llama a|ll[aá]mame|whatsapp/.test(t)) {
+    let provs = [];
+    try { const { data } = await sb.from("proveedores").select("*").order("nombre"); provs = data || []; } catch (e) {}
+    if (!provs.length) return "No tienes proveedores guardados todavía. Añádelos en 📒 Cuaderno.";
+    const match = provs.find((p) => p.nombre && t.includes(p.nombre.toLowerCase())) || (provs.length === 1 ? provs[0] : null);
+    if (match) {
+      const parts = [];
+      if (match.telefono) parts.push("📞 " + match.telefono);
+      if (match.email) parts.push("✉️ " + match.email);
+      if (match.notas) parts.push("📝 " + match.notas);
+      return `${match.nombre}\n${parts.join("\n") || "No tengo más datos suyos."}`;
+    }
+    return "¿De qué proveedor? Tengo: " + provs.map((p) => p.nombre).join(", ") + ".";
+  }
+
+  // --- Notas ---
+  if (/(qu[eé] |mis |las )?notas?\b|recordatori|apunt[eé]/.test(t)) {
+    let ns = [];
+    try { const { data } = await sb.from("notas").select("*").order("created_at", { ascending: false }).limit(8); ns = data || []; } catch (e) {}
+    if (!ns.length) return "No tienes notas guardadas. Apunta lo que quieras en 📒 Cuaderno.";
+    return "Tus últimas notas:\n" + ns.map((n) => "· " + n.texto).join("\n");
+  }
+
   let rows = [];
   try {
     const { data, error } = await sb.from("cierres")
@@ -1023,7 +1048,7 @@ async function casaQuery(question) {
 
   return CASA_HELP;
 }
-const CASA_HELP = "Puedo decirte la caja de un día (\"¿cuánto se hizo el 15 de mayo?\" o \"¿y ayer?\"), el total o la media de un mes, el mejor día, o cuánto en tarjeta/efectivo. ¿Qué quieres saber? 🎂";
+const CASA_HELP = "Puedo decirte la caja de un día (\"¿cuánto se hizo el 15 de mayo?\" o \"¿y ayer?\"), el total o media de un mes, el mejor día, cuánto en tarjeta/efectivo, el contacto de un proveedor (\"dame el contacto de X\") o tus notas. ¿Qué quieres saber? 🎂";
 window.CASA_HELP = CASA_HELP;
 window.casaQuery = casaQuery;
 

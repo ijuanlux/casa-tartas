@@ -638,6 +638,15 @@ const REACTIONS = {
     "Puf, ya no está. Ojalá esa paz.",
     "Eliminado sin piedad. Me recuerda a mi destino.",
   ],
+  cajaGuapa: [
+    "¡DIOS! ¿¿Tanta caja?? 🤑",
+    "¡MADRE MÍA qué día más bestia! 💸",
+    "¡BUFF! Hoy sí que sí, ¡a forrarse! 🤑",
+    "¡¿Pero qué barbaridad de caja?! 😱",
+    "¡TOMA PASTA! Hoy invito yo (es broma, soy una tarta).",
+    "¡Estamos ricos! Bueno, vosotros. Yo sigo a 3€ la porción.",
+    "¡QUE LLUEVA LA PASTA! 💸💸",
+  ],
 };
 
 /* chat de la tarta. Modo básico (reglas) + modo IA opcional (LLM en el navegador) */
@@ -784,7 +793,7 @@ function buildChat() {
       el.hidden = false;
       if (!greeted) {
         greeted = true;
-        const base = "¡Hola! Soy la tarta 🎂 Pregúntame por la caja de un día (\"¿cuánto se hizo ayer?\"), el total o la media de un mes, el mejor día…";
+        const base = "¡Hola! Soy la tarta 🎂 Pregúntame por la caja de un día (\"¿cuánto se hizo ayer?\"), totales/medias de un mes, el mejor día, el contacto de un proveedor o tus notas…";
         add(base + (AI_CAPABLE ? " Y si le das a 🧠 IA, pienso de verdad (en tu propio navegador)." : ""), "bot");
         if (AI_CAPABLE) { try { if (localStorage.getItem(AI_KEY) === "on") aiBtn.click(); } catch (e) {} }
       }
@@ -813,7 +822,8 @@ function buildMascot() {
       <circle class="cm-flame" cx="50" cy="27" r="4" fill="#ffd24a"/>
       <path d="M37 70 q4 4 8 0" fill="none" stroke="#7a4b2a" stroke-width="2.4" stroke-linecap="round"/>
       <path d="M55 70 q4 4 8 0" fill="none" stroke="#7a4b2a" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M42 82 q8 -5 16 0" fill="none" stroke="#7a4b2a" stroke-width="2.4" stroke-linecap="round"/>
+      <path class="cm-mouth-closed" d="M42 82 q8 -5 16 0" fill="none" stroke="#7a4b2a" stroke-width="2.4" stroke-linecap="round"/>
+      <ellipse class="cm-mouth-open" cx="50" cy="81" rx="6.5" ry="3.4" fill="#7a4b2a"/>
     </svg>
     <span class="cm-chatbadge">💬</span>`;
   document.body.appendChild(el);
@@ -829,7 +839,7 @@ function initMascot() {
   const app = $("#view-app");
   if (!app) return;
   let el = null, bubble = null, active = false;
-  let bubbleTimer = null, wanderTween = null, bobTween = null, lastPhrase = -1, firstShown = false;
+  let bubbleTimer = null, wanderTween = null, bobTween = null, anticTimer = null, lastPhrase = -1, firstShown = false;
   let pool = CAKE_PHRASES;
 
   // si existe frases.json (p.ej. actualizado a diario por una IA), úsalo para estadísticas
@@ -850,6 +860,7 @@ function initMascot() {
     lastPhrase = i;
     bubble.textContent = pool[i];
     el.classList.add("talking");
+    if (hasGsap && Math.random() < 0.4) emote(emoteForPhrase(pool[i]));   // de vez en cuando, un gesto
     bubbleTimer = setTimeout(() => {
       el.classList.remove("talking");
       bubbleTimer = setTimeout(nextPhrase, 2200);
@@ -869,6 +880,27 @@ function initMascot() {
     wanderTween = gsap.to(el, { x: Math.random() * maxX, duration: 4 + Math.random() * 3, ease: "sine.inOut", onComplete: wander });
   }
 
+  // ---- gestos / animaciones (le dan vida) ----
+  const EMOTES = ["hop", "spin", "wobble", "sigh"];
+  function emote(name) {
+    if (!hasGsap || !el) return;
+    if (name === "hop") gsap.fromTo(el, { y: 0 }, { y: -30, duration: 0.22, yoyo: true, repeat: 1, ease: "power2.out", onComplete: () => gsap.set(el, { y: 0 }) });
+    else if (name === "spin") gsap.fromTo(el, { rotation: 0 }, { rotation: 360, duration: 0.7, ease: "power1.inOut", onComplete: () => gsap.set(el, { rotation: 0 }) });
+    else if (name === "wobble") gsap.fromTo(el, { rotation: -14 }, { rotation: 14, duration: 0.09, yoyo: true, repeat: 5, ease: "sine.inOut", onComplete: () => gsap.set(el, { rotation: 0 }) });
+    else if (name === "sigh") gsap.fromTo(el, { scaleY: 1, scaleX: 1 }, { scaleY: 0.72, scaleX: 1.16, duration: 0.5, yoyo: true, repeat: 1, ease: "power1.inOut", transformOrigin: "50% 100%", onComplete: () => gsap.set(el, { scaleY: 1, scaleX: 1 }) });
+  }
+  function emoteForPhrase(t) {
+    t = (t || "").toLowerCase();
+    if (/wow|toma|bien|dios|récord|record|¡toma|barbarid|pasada/.test(t)) return "hop";
+    if (/derret|penas|suspir|funeral|muero|adiós|adios|\bfin\b|encojo/.test(t)) return "sigh";
+    if (/denuncio|rencor|crimen|sacrific|cuchillo|matadero|exprim/.test(t)) return "wobble";
+    return EMOTES[Math.floor(Math.random() * EMOTES.length)];
+  }
+  function scheduleAntic() {
+    if (!active) return;
+    anticTimer = setTimeout(() => { if (active) emote(EMOTES[Math.floor(Math.random() * EMOTES.length)]); scheduleAntic(); }, 9000 + Math.random() * 8000);
+  }
+
   function start() {
     if (active) return;
     active = true;
@@ -882,28 +914,37 @@ function initMascot() {
       wander();
     }
     bubbleTimer = setTimeout(nextPhrase, 900);
+    scheduleAntic();
   }
 
   function stop() {
     if (!active) return;
     active = false;
     if (bubbleTimer) clearTimeout(bubbleTimer);
+    if (anticTimer) clearTimeout(anticTimer);
     if (wanderTween) wanderTween.kill();
     if (bobTween) bobTween.kill();
     if (el) { el.classList.remove("talking"); el.style.display = "none"; }
   }
 
   // reacción inmediata a una acción (guardar cierre, añadir contacto/nota/factura, borrar)
-  function reactNow(kind) {
+  function reactNow(kind, detail) {
     if (!active || !el || !bubble) return;
-    const arr = REACTIONS[kind]; if (!arr || !arr.length) return;
+    let arr = REACTIONS[kind]; if (!arr || !arr.length) return;
+    let bigCaja = false;
+    if (kind === "cierre" && detail && detail.amount >= 300) { arr = REACTIONS.cajaGuapa; bigCaja = true; }
     if (bubbleTimer) clearTimeout(bubbleTimer);
-    bubble.textContent = arr[Math.floor(Math.random() * arr.length)];
+    const txt = arr[Math.floor(Math.random() * arr.length)];
+    bubble.textContent = txt;
     el.classList.add("talking");
-    if (hasGsap) gsap.fromTo(el.querySelector(".cm-cake"), { scale: 1 }, { scale: 1.28, duration: 0.16, yoyo: true, repeat: 1, ease: "power2.out", transformOrigin: "50% 100%" });
+    if (bigCaja) {
+      emote("hop");
+      const n = detail.amount >= 600 ? 80 : detail.amount >= 450 ? 60 : 44;  // más caja, más billetes
+      if (typeof window.casaConfetti === "function") window.casaConfetti(n);
+    } else emote(emoteForPhrase(txt));
     bubbleTimer = setTimeout(() => { el.classList.remove("talking"); bubbleTimer = setTimeout(nextPhrase, 2200); }, 4400);
   }
-  window.addEventListener("casa:tarta", (e) => reactNow(e.detail && e.detail.kind));
+  window.addEventListener("casa:tarta", (e) => reactNow(e.detail && e.detail.kind, e.detail));
 
   // cambiar de pestaña → cambia el repertorio y suelta una pulla
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => setTimeout(() => { setPool(); sayNow(500); }, 60)));
@@ -970,12 +1011,13 @@ function initDashboard() {
 /* ============================================================
    BONUS: confeti (sin librería) para celebrar récords
    ============================================================ */
-window.casaConfetti = function () {
-  const EM = ["🎉", "💸", "🎂", "⭐", "🍒", "🥳"];
+window.casaConfetti = function (count) {
+  const EM = ["💸", "💵", "🤑", "💶", "🎉", "🎂", "⭐", "🥳"];
   const layer = document.createElement("div");
   layer.className = "confetti-layer";
   document.body.appendChild(layer);
-  for (let i = 0; i < 36; i++) {
+  const total = count || 36;
+  for (let i = 0; i < total; i++) {
     const s = document.createElement("span");
     s.className = "confetti-bit";
     s.textContent = EM[i % EM.length];

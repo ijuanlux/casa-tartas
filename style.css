@@ -225,6 +225,11 @@ body.login-mode, body.login-mode * { cursor: none; }
 /* ====== Mascota tarta deprimida ====== */
 .cake-mascot { position: fixed; bottom: 16px; left: 16px; z-index: 60; width: 96px; pointer-events: none; will-change: transform; }
 .cake-mascot .cm-cake { width: 100%; height: auto; display: block; filter: drop-shadow(0 8px 14px rgba(0,0,0,0.25)); }
+/* boca que se mueve al hablar */
+.cm-mouth-open { display: none; transform-box: fill-box; transform-origin: 50% 50%; }
+.cake-mascot.talking .cm-mouth-closed { display: none; }
+.cake-mascot.talking .cm-mouth-open { display: block; animation: cm-talk 0.25s ease-in-out infinite alternate; }
+@keyframes cm-talk { from { transform: scaleY(0.28); } to { transform: scaleY(1.1); } }
 /* patitas andando */
 .cm-leg { transform-box: fill-box; }
 .cake-mascot.walking .cm-leg-l { animation: cm-step 0.46s ease-in-out infinite; }
