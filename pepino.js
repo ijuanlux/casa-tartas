@@ -519,6 +519,9 @@ const CAKE_AVATAR = `
   </svg>`;
 const AI_MODEL = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
 const AI_KEY = "casa_ai_mode";
+// el LLM en navegador solo es viable en escritorio con WebGPU (en móvil revienta por memoria)
+const IS_MOBILE = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(navigator.userAgent || "");
+const AI_CAPABLE = !!navigator.gpu && !IS_MOBILE;
 let aiEngine = null, aiLoading = null;
 const AI_SYSTEM =
   "Eres 'La Tarta', mascota de la pastelería La Casa de las Tartas: una tarta con gafas de sol, simpática y con humor breve.\n" +
@@ -549,6 +552,7 @@ function buildChat() {
   document.body.appendChild(el);
   const msgs = el.querySelector(".cc-msgs"), form = el.querySelector(".cc-form"), input = el.querySelector("input");
   const aiBtn = el.querySelector(".cc-ai");
+  if (!AI_CAPABLE) aiBtn.style.display = "none";   // en móvil/sin WebGPU, solo modo básico
   let aiMode = false, greeted = false, lastWho = null;
 
   function add(text, who) {
@@ -615,7 +619,7 @@ function buildChat() {
 
   aiBtn.addEventListener("click", async () => {
     if (aiMode) { aiMode = false; reflectAi(); try { localStorage.setItem(AI_KEY, "off"); } catch (e) {} add("Modo IA desactivado. Vuelvo al modo rápido.", "bot"); return; }
-    if (!navigator.gpu) { add("Tu dispositivo no soporta IA local (hace falta WebGPU, va en Chrome/Edge de escritorio). Sigo en modo básico, que también responde de lujo 💪", "bot"); return; }
+    if (!AI_CAPABLE) { add("El modo IA solo funciona en ordenador (Chrome/Edge con WebGPU). En el móvil uso el modo rápido, que responde igual de bien y sin esperas 💪", "bot"); return; }
     aiMode = true; reflectAi(); try { localStorage.setItem(AI_KEY, "on"); } catch (e) {}
     add("Modo IA activado 🧠 La primera vez descargo el modelo (unos cientos de MB, se queda guardado). Pregúntame lo que quieras.", "bot");
     const prog = add("Cargando el cerebro de la tarta…", "bot typing");
@@ -643,8 +647,9 @@ function buildChat() {
       el.hidden = false;
       if (!greeted) {
         greeted = true;
-        add("¡Hola! Soy la tarta 🎂 Pregúntame por la caja de un día (\"¿cuánto se hizo ayer?\"), el total o la media de un mes, el mejor día… Y si le das a 🧠 IA, pienso de verdad (en tu propio navegador).", "bot");
-        if (navigator.gpu) { try { if (localStorage.getItem(AI_KEY) === "on") aiBtn.click(); } catch (e) {} }
+        const base = "¡Hola! Soy la tarta 🎂 Pregúntame por la caja de un día (\"¿cuánto se hizo ayer?\"), el total o la media de un mes, el mejor día…";
+        add(base + (AI_CAPABLE ? " Y si le das a 🧠 IA, pienso de verdad (en tu propio navegador)." : ""), "bot");
+        if (AI_CAPABLE) { try { if (localStorage.getItem(AI_KEY) === "on") aiBtn.click(); } catch (e) {} }
       }
       input.focus();
     },
