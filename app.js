@@ -874,21 +874,25 @@ async function exportStatsPDF() {
 
   const pageBg = () => { doc.setFillColor(...BG); doc.rect(0, 0, W, H, "F"); };
   pageBg();
-  doc.setFillColor(...ACCENT); doc.rect(0, 0, W, 98, "F");
-  doc.setFillColor(244, 196, 48); doc.rect(0, 98, W, 4, "F");
+  // encabezado BLANCO: el logo lleva fondo blanco, así se funde y no choca con el rosa
+  doc.setFillColor(255, 255, 255); doc.rect(0, 0, W, 104, "F");
   try {
     const logo = await imgToDataURL("./logo-casa-tartas.png");
-    doc.setFillColor(255, 255, 255); doc.roundedRect(M, 22, 150, 54, 10, 10, "F");
-    const f = fitBox(logo.w, logo.h, 130, 40); doc.addImage(logo.dataURL, "PNG", M + (150 - f.w) / 2, 22 + (54 - f.h) / 2, f.w, f.h);
+    const f = fitBox(logo.w, logo.h, 172, 60);
+    doc.addImage(logo.dataURL, "PNG", M, 22 + (60 - f.h) / 2, f.w, f.h);
   } catch (e) {}
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("Informe de caja", W - M, 46, { align: "right" });
-  doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.text(S.period, W - M, 66, { align: "right" });
-  doc.setFontSize(9);
+  doc.setTextColor(...ACCENT);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("Informe de caja", W - M, 44, { align: "right" });
+  doc.setTextColor(...INK);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.text(S.period, W - M, 65, { align: "right" });
+  doc.setTextColor(...SOFT); doc.setFontSize(9);
   const hoy = new Date().toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
-  doc.text("Generado el " + hoy, W - M, 83, { align: "right" });
+  doc.text("Generado el " + hoy, W - M, 81, { align: "right" });
+  // regla bicolor (rosa + dorado) que combina con la marca
+  doc.setFillColor(...ACCENT); doc.rect(0, 104, W * 0.62, 3.5, "F");
+  doc.setFillColor(244, 196, 48); doc.rect(W * 0.62, 104, W * 0.38, 3.5, "F");
 
-  let y = 126;
+  let y = 128;
   const kpis = [["Total caja", S.kpi.total, S.kpi.delta], ["Cierres", S.kpi.count, ""], ["Media/cierre", S.kpi.avg, ""], ["Mejor día", S.kpi.best, S.kpi.bestDate]];
   const kw = (CW - 30) / 4;
   kpis.forEach((k, i) => {
