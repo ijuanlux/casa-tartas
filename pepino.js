@@ -583,10 +583,9 @@ function initMascot() {
    9. DASHBOARD ARRASTRABLE + REDIMENSIONABLE (tipo Zabbix)
    ============================================================ */
 const DASH_ORDER = "casa_dash_order_";
-const DASH_SIZE = "casa_dash_size";
-// presets de tamaño: ancho (w1/w2 columnas) y alto (h1/h2)
-const SIZES = ["w1h1", "w2h1", "w2h2"];          // pequeño → ancho → grande
-const DEFAULT_SIZE = { meses: 1, evolucion: 1 }; // estos arrancan anchos
+const DASH_SIZE = "casa_dash_size";       // { widget: { span:1|2, h:px } }
+const DEFAULT_SPAN = { meses: 2, evolucion: 2 };   // estos arrancan anchos
+const MIN_H = 180, MAX_H = 680;
 
 function dashLoad(key, fallback) {
   try { const v = JSON.parse(localStorage.getItem(key) || "null"); return v == null ? fallback : v; }
@@ -594,17 +593,66 @@ function dashLoad(key, fallback) {
 }
 function dashSave(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
 
+function resizeCardChart(card) {
+  const cv = card.querySelector("canvas");
+  if (cv && typeof Chart !== "undefined" && Chart.getChart) { const c = Chart.getChart(cv); if (c) c.resize(); }
+}
 function applySize(card) {
-  const idx = Math.max(0, Math.min(SIZES.length - 1, Number(card.dataset.size || 0)));
-  const s = SIZES[idx];
-  card.classList.remove("w1", "w2", "h1", "h2");
-  card.classList.add(s.slice(0, 2), s.slice(2));
-  // redimensiona el gráfico de Chart.js tras el reflow
-  requestAnimationFrame(() => {
-    const cv = card.querySelector("canvas");
-    if (cv && typeof Chart !== "undefined" && Chart.getChart) {
-      const c = Chart.getChart(cv); if (c) c.resize();
-    }
+  const span = Number(card.dataset.span || 1);
+  card.classList.toggle("w2", span === 2);
+  const h = Number(card.dataset.h || 0);
+  const box = card.querySelector(".chart-box");
+  if (box) box.style.height = h > 0 ? h + "px" : "";
+  requestAnimationFrame(() => resizeCardChart(card));
+}
+function saveSizes(grid) {
+  const map = {};
+  grid.querySelectorAll(".chart-card").forEach((c) => {
+    map[c.dataset.widget] = { span: Number(c.dataset.span || 1), h: Number(c.dataset.h || 0) };
+  });
+  dashSave(DASH_SIZE, map);
+}
+
+// tirador en la esquina para estirar el widget (ratón + táctil)
+function addResizeHandle(card, grid, onSave) {
+  const handle = document.createElement("div");
+  handle.className = "resize-handle";
+  handle.title = "Estira para cambiar el tamaño";
+  card.appendChild(handle);
+
+  handle.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    card.classList.add("resizing");
+    const startY = e.clientY;
+    const startH = card.querySelector(".chart-box").getBoundingClientRect().height;
+    const cardLeft = card.getBoundingClientRect().left;
+    const gs = getComputedStyle(grid);
+    const cols = gs.gridTemplateColumns.split(" ").filter(Boolean).length;
+    const gap = parseFloat(gs.columnGap) || 16;
+    const colW = (grid.clientWidth - gap * (cols - 1)) / cols;
+    handle.setPointerCapture(e.pointerId);
+
+    const move = (ev) => {
+      // ancho: salta a 2 columnas si estiras más allá de ~1.4 columnas (solo si el grid tiene >1 col)
+      if (cols > 1) {
+        const span = (ev.clientX - cardLeft) > colW * 1.4 ? 2 : 1;
+        if (Number(card.dataset.span || 1) !== span) { card.dataset.span = span; card.classList.toggle("w2", span === 2); }
+      }
+      // alto libre
+      const nh = Math.max(MIN_H, Math.min(MAX_H, startH + (ev.clientY - startY)));
+      card.dataset.h = Math.round(nh);
+      card.querySelector(".chart-box").style.height = Math.round(nh) + "px";
+      resizeCardChart(card);
+    };
+    const up = () => {
+      card.classList.remove("resizing");
+      try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", up);
+      onSave();
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up);
   });
 }
 
@@ -620,26 +668,16 @@ function dashApplyOrder(grid, key) {
 function initDashboard() {
   const charts = $("#charts-grid"), kpis = $("#kpi-grid");
 
-  // ---- tamaños de cada widget ----
-  const sizeMap = dashLoad(DASH_SIZE, {});
+  // ---- tamaños guardados + tirador de esquina ----
   if (charts) {
+    const sizeMap = dashLoad(DASH_SIZE, {});
     charts.querySelectorAll(".chart-card").forEach((card) => {
       const w = card.dataset.widget;
-      card.dataset.size = (w in sizeMap) ? sizeMap[w] : (DEFAULT_SIZE[w] ?? 0);
+      const saved = sizeMap[w];
+      card.dataset.span = saved ? saved.span : (DEFAULT_SPAN[w] || 1);
+      card.dataset.h = saved && saved.h ? saved.h : 0;
       applySize(card);
-    });
-    charts.addEventListener("click", (e) => {
-      const btn = e.target.closest(".widget-btn");
-      if (!btn) return;
-      const card = btn.closest(".chart-card");
-      let idx = Number(card.dataset.size || 0);
-      idx += btn.dataset.act === "bigger" ? 1 : -1;
-      idx = Math.max(0, Math.min(SIZES.length - 1, idx));
-      card.dataset.size = idx;
-      applySize(card);
-      const map = dashLoad(DASH_SIZE, {});
-      map[card.dataset.widget] = idx;
-      dashSave(DASH_SIZE, map);
+      addResizeHandle(card, charts, () => saveSizes(charts));
     });
   }
 
@@ -647,17 +685,17 @@ function initDashboard() {
   if (typeof Sortable !== "undefined") {
     const common = {
       animation: 150,
-      swapThreshold: 0.6,        // hace falta cubrir el 60% del hueco para intercambiar (menos saltos)
+      swapThreshold: 0.6,        // cubrir el 60% del hueco para intercambiar (menos saltos)
       invertSwap: true,          // dirección de swap más predecible
       fallbackOnBody: true,      // el "fantasma" sigue al cursor sin saltos del grid
       forceFallback: true,       // consistente en ratón y táctil
       fallbackTolerance: 5,
-      delay: 60, delayOnTouchOnly: true,   // evita arrastres accidentales en móvil al hacer scroll
+      delay: 60, delayOnTouchOnly: true,
       ghostClass: "widget-ghost",
       chosenClass: "widget-chosen",
       dragClass: "widget-drag",
     };
-    if (charts) Sortable.create(charts, { ...common, handle: ".drag-handle", draggable: ".chart-card", filter: ".widget-btn", preventOnFilter: false, onEnd: () => dashSaveOrder(charts, "charts") });
+    if (charts) Sortable.create(charts, { ...common, handle: ".drag-handle", draggable: ".chart-card", filter: ".resize-handle", onEnd: () => dashSaveOrder(charts, "charts") });
     if (kpis) Sortable.create(kpis, { ...common, draggable: ".kpi", onEnd: () => dashSaveOrder(kpis, "kpi") });
   }
   if (charts) dashApplyOrder(charts, "charts");

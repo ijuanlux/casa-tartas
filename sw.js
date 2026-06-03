@@ -2,7 +2,7 @@
 // Cache-first para estáticos, network-only para Supabase (datos frescos).
 // Sube CACHE_VERSION cuando cambies HTML/CSS/JS para forzar refresh.
 
-const CACHE_VERSION = "v15";
+const CACHE_VERSION = "v16";
 const CACHE_NAME = `casa-tartas-${CACHE_VERSION}`;
 
 const ASSETS = [
