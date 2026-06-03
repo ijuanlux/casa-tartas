@@ -1130,7 +1130,7 @@ async function loadFacturasFoto() {
     </div>`).join("");
   for (const img of cont.querySelectorAll(".ff-thumb")) {
     const { data: su } = await sb.storage.from("facturas").createSignedUrl(img.dataset.path, 3600);
-    if (su?.signedUrl) { img.src = su.signedUrl; img.style.cursor = "zoom-in"; img.addEventListener("click", () => window.open(su.signedUrl, "_blank")); }
+    if (su?.signedUrl) { img.src = su.signedUrl; img.style.cursor = "zoom-in"; img.addEventListener("click", () => openFotoEditor(img.dataset.path, su.signedUrl)); }
   }
   cont.querySelectorAll(".cuad-del").forEach((b) => b.addEventListener("click", async () => {
     if (!confirm("¿Borrar esta factura?")) return;
@@ -1153,23 +1153,15 @@ async function loadProveedores() {
   const { data, error } = await sb.from("proveedores").select("*").order("nombre");
   if (error) { cont.innerHTML = `<p class="hint">No se pudo cargar.</p>`; return; }
   if (!data.length) { cont.innerHTML = `<p class="hint">Sin proveedores todavía. 📇</p>`; return; }
-  cont.innerHTML = data.map((p) => `
-    <div class="cuad-item">
+  cont.innerHTML = data.map((p, i) => `
+    <div class="cuad-item prov-row" data-i="${i}">
       <div class="cuad-item-body">
         <strong>${esc(p.nombre)}</strong>
-        ${p.notas ? `<span>${esc(p.notas)}</span>` : ""}
-        <div class="cuad-actions">
-          ${p.telefono ? `<a class="chip" href="tel:${esc(p.telefono)}">📞 ${esc(p.telefono)}</a>` : ""}
-          ${p.email ? `<a class="chip" href="mailto:${esc(p.email)}">✉️ Email</a>` : ""}
-        </div>
+        <span>${esc(p.telefono || p.email || p.notas || "Sin datos")}</span>
       </div>
-      <button class="btn-ghost cuad-del" data-id="${p.id}" title="Borrar">🗑</button>
+      <span class="cuad-go">›</span>
     </div>`).join("");
-  cont.querySelectorAll(".cuad-del").forEach((b) => b.addEventListener("click", async () => {
-    if (!confirm("¿Borrar este proveedor?")) return;
-    await sb.from("proveedores").delete().eq("id", Number(b.dataset.id));
-    loadProveedores();
-  }));
+  cont.querySelectorAll(".prov-row").forEach((row) => row.addEventListener("click", () => openProveedor(data[Number(row.dataset.i)])));
 }
 
 // --- Notas ---
@@ -1195,6 +1187,103 @@ async function loadNotas() {
     loadNotas();
   }));
 }
+
+// ===== Visor / editor de fotos =====
+const fEd = { path: null, img: null, strokes: [], drawing: null, draw: false, color: "#e4263b", size: 6, scale: 1, tx: 0, ty: 0 };
+function fmTransform() { $("#fm-canvas").style.transform = `translate(${fEd.tx}px,${fEd.ty}px) scale(${fEd.scale})`; }
+function fmRedraw() {
+  const cv = $("#fm-canvas"), ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (fEd.img) ctx.drawImage(fEd.img, 0, 0, cv.width, cv.height);
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (const s of fEd.strokes) {
+    ctx.strokeStyle = s.color; ctx.fillStyle = s.color; ctx.lineWidth = s.size;
+    if (s.pts.length === 1) { ctx.beginPath(); ctx.arc(s.pts[0].x, s.pts[0].y, s.size / 2, 0, 7); ctx.fill(); }
+    else { ctx.beginPath(); s.pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke(); }
+  }
+}
+function fmFit() { fEd.scale = 1; fEd.tx = 0; fEd.ty = 0; fmTransform(); }
+function fmCoords(e) { const cv = $("#fm-canvas"), r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; }
+function openFotoEditor(path, url) {
+  fEd.path = path; fEd.strokes = []; fEd.draw = false; $(".fm-draw")?.classList.remove("on");
+  $(".fm-stage").style.cursor = "grab";
+  const img = new Image(); img.crossOrigin = "anonymous";
+  img.onload = () => {
+    let w = img.naturalWidth, h = img.naturalHeight; const MX = 1600;
+    if (w > h && w > MX) { h = Math.round(h * MX / w); w = MX; } else if (h > MX) { w = Math.round(w * MX / h); h = MX; }
+    const cv = $("#fm-canvas"); cv.width = w; cv.height = h; fEd.img = img; fmRedraw(); fmFit();
+  };
+  img.onerror = () => alert("No se pudo cargar la foto.");
+  img.src = url;
+  $("#foto-modal").showModal();
+}
+
+(function initFotoModal() {
+  const modal = $("#foto-modal"); if (!modal) return;
+  const stage = modal.querySelector(".fm-stage");
+  const pts = new Map(); let pinch = null, pan = null;
+  modal.querySelector(".fm-toolbar").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    const a = b.dataset.act;
+    if (a === "zoomin") { fEd.scale = Math.min(6, fEd.scale * 1.25); fmTransform(); }
+    else if (a === "zoomout") { fEd.scale = Math.max(0.4, fEd.scale / 1.25); fmTransform(); }
+    else if (a === "fit") fmFit();
+    else if (a === "draw") { fEd.draw = !fEd.draw; b.classList.toggle("on", fEd.draw); stage.style.cursor = fEd.draw ? "crosshair" : "grab"; }
+    else if (a === "size") { fEd.size = fEd.size >= 16 ? 4 : fEd.size + 6; }
+    else if (a === "undo") { fEd.strokes.pop(); fmRedraw(); }
+    else if (a === "close") modal.close();
+    else if (a === "save") {
+      $("#fm-canvas").toBlob(async (blob) => {
+        try { const { error } = await sb.storage.from("facturas").upload(fEd.path, blob, { upsert: true, contentType: "image/jpeg" }); if (error) throw error; modal.close(); loadFacturasFoto(); }
+        catch (err) { alert("Error al guardar: " + (err.message || err)); }
+      }, "image/jpeg", 0.85);
+    }
+  });
+  modal.querySelector(".fm-color").addEventListener("input", (e) => { fEd.color = e.target.value; });
+  stage.addEventListener("pointerdown", (e) => {
+    e.preventDefault(); stage.setPointerCapture?.(e.pointerId);
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (fEd.draw && pts.size === 1) { fEd.drawing = { color: fEd.color, size: fEd.size, pts: [fmCoords(e)] }; fEd.strokes.push(fEd.drawing); fmRedraw(); }
+    else if (pts.size === 1) pan = { x: e.clientX, y: e.clientY, tx: fEd.tx, ty: fEd.ty };
+    else if (pts.size === 2) { const a = [...pts.values()]; pinch = { d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1, s: fEd.scale }; pan = null; fEd.drawing = null; }
+  });
+  stage.addEventListener("pointermove", (e) => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (fEd.draw && fEd.drawing && pts.size === 1) { fEd.drawing.pts.push(fmCoords(e)); fmRedraw(); }
+    else if (pinch && pts.size >= 2) { const a = [...pts.values()]; const d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); fEd.scale = Math.max(0.4, Math.min(6, pinch.s * d / pinch.d)); fmTransform(); }
+    else if (pan && pts.size === 1) { fEd.tx = pan.tx + (e.clientX - pan.x); fEd.ty = pan.ty + (e.clientY - pan.y); fmTransform(); }
+  });
+  const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; if (pts.size === 0) { pan = null; fEd.drawing = null; } };
+  stage.addEventListener("pointerup", up); stage.addEventListener("pointercancel", up);
+})();
+
+// ===== Ficha de proveedor =====
+function openProveedor(p) {
+  $("#pm-nombre").textContent = p.nombre || "Proveedor";
+  $("#pm-body").innerHTML =
+    (p.telefono ? `<div class="pm-field"><span>📞 Teléfono</span><b>${esc(p.telefono)}</b></div>` : "") +
+    (p.email ? `<div class="pm-field"><span>✉️ Email</span><b>${esc(p.email)}</b></div>` : "") +
+    (p.notas ? `<div class="pm-field"><span>📝 Notas</span><b>${esc(p.notas)}</b></div>` : "") ||
+    `<p class="hint">Sin datos extra.</p>`;
+  const tel = (p.telefono || "").replace(/\s/g, "");
+  $("#pm-actions").innerHTML =
+    (p.telefono ? `<a class="btn-primary" href="tel:${esc(tel)}">📞 Llamar</a>` : "") +
+    (p.telefono ? `<a class="btn-ghost" href="https://wa.me/${esc(tel.replace(/[^0-9]/g, ""))}" target="_blank" rel="noopener">WhatsApp</a>` : "") +
+    (p.email ? `<a class="btn-ghost" href="mailto:${esc(p.email)}">✉️ Email</a>` : "") +
+    `<button class="btn-ghost pm-del" type="button">🗑 Borrar</button>`;
+  $("#pm-actions .pm-del").addEventListener("click", async () => {
+    if (!confirm("¿Borrar este proveedor?")) return;
+    await sb.from("proveedores").delete().eq("id", p.id);
+    $("#prov-modal").close(); loadProveedores();
+  });
+  $("#prov-modal").showModal();
+}
+(function initProvModal() {
+  const modal = $("#prov-modal"); if (!modal) return;
+  modal.querySelector(".pm-close").addEventListener("click", () => modal.close());
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.close(); });  // tocar fuera cierra
+})();
 
 // ===== Admin =====
 async function loadAdmin() {

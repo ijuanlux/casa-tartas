@@ -430,6 +430,35 @@
     </form>
   </dialog>
 
+  <!-- ============ VISOR / EDITOR DE FOTO ============ -->
+  <dialog id="foto-modal" class="foto-modal">
+    <div class="fm-toolbar">
+      <button class="fm-btn" data-act="zoomout" title="Alejar" type="button">➖</button>
+      <button class="fm-btn" data-act="zoomin" title="Acercar" type="button">➕</button>
+      <button class="fm-btn" data-act="fit" title="Ajustar" type="button">⤢</button>
+      <span class="fm-sep"></span>
+      <button class="fm-btn fm-draw" data-act="draw" title="Dibujar" type="button">✏️</button>
+      <input type="color" class="fm-color" value="#e4263b" title="Color" />
+      <button class="fm-btn" data-act="size" title="Grosor" type="button">✦</button>
+      <button class="fm-btn" data-act="undo" title="Deshacer" type="button">↶</button>
+      <span class="fm-grow"></span>
+      <button class="fm-btn fm-save" data-act="save" title="Guardar" type="button">💾 Guardar</button>
+      <button class="fm-btn fm-close" data-act="close" title="Cerrar" type="button">✕</button>
+    </div>
+    <div class="fm-stage"><canvas id="fm-canvas"></canvas></div>
+  </dialog>
+
+  <!-- ============ FICHA DE PROVEEDOR ============ -->
+  <dialog id="prov-modal" class="prov-modal">
+    <div class="pm-card">
+      <button class="pm-close" type="button" aria-label="Cerrar">✕</button>
+      <div class="pm-avatar">📇</div>
+      <h3 id="pm-nombre"></h3>
+      <div id="pm-body"></div>
+      <div id="pm-actions" class="pm-actions"></div>
+    </div>
+  </dialog>
+
   <!-- ============ MODAL JUEGO: TARTA INVADERS ============ -->
   <dialog id="game-modal">
     <div class="game-wrap">
