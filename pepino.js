@@ -580,45 +580,91 @@ function initMascot() {
 }
 
 /* ============================================================
-   9. DASHBOARD ARRASTRABLE (tipo Zabbix, con SortableJS)
+   9. DASHBOARD ARRASTRABLE + REDIMENSIONABLE (tipo Zabbix)
    ============================================================ */
-const DASH_KEY = "casa_dash_order_";
-function dashSaveOrder(grid, key) {
-  const order = [...grid.children].map((c) => c.dataset.widget).filter(Boolean);
-  try { localStorage.setItem(DASH_KEY + key, JSON.stringify(order)); } catch (e) {}
+const DASH_ORDER = "casa_dash_order_";
+const DASH_SIZE = "casa_dash_size";
+// presets de tamaño: ancho (w1/w2 columnas) y alto (h1/h2)
+const SIZES = ["w1h1", "w2h1", "w2h2"];          // pequeño → ancho → grande
+const DEFAULT_SIZE = { meses: 1, evolucion: 1 }; // estos arrancan anchos
+
+function dashLoad(key, fallback) {
+  try { const v = JSON.parse(localStorage.getItem(key) || "null"); return v == null ? fallback : v; }
+  catch (e) { return fallback; }
 }
-function dashApplyOrder(grid, key) {
-  let order = null;
-  try { order = JSON.parse(localStorage.getItem(DASH_KEY + key) || "null"); } catch (e) {}
-  if (!Array.isArray(order)) return;
-  order.forEach((w) => {
-    const el = grid.querySelector(`[data-widget="${w}"]`);
-    if (el) grid.appendChild(el);   // recoloca en el orden guardado
+function dashSave(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+
+function applySize(card) {
+  const idx = Math.max(0, Math.min(SIZES.length - 1, Number(card.dataset.size || 0)));
+  const s = SIZES[idx];
+  card.classList.remove("w1", "w2", "h1", "h2");
+  card.classList.add(s.slice(0, 2), s.slice(2));
+  // redimensiona el gráfico de Chart.js tras el reflow
+  requestAnimationFrame(() => {
+    const cv = card.querySelector("canvas");
+    if (cv && typeof Chart !== "undefined" && Chart.getChart) {
+      const c = Chart.getChart(cv); if (c) c.resize();
+    }
   });
 }
+
+function dashSaveOrder(grid, key) {
+  dashSave(DASH_ORDER + key, [...grid.children].map((c) => c.dataset.widget).filter(Boolean));
+}
+function dashApplyOrder(grid, key) {
+  const order = dashLoad(DASH_ORDER + key, null);
+  if (!Array.isArray(order)) return;
+  order.forEach((w) => { const el = grid.querySelector(`[data-widget="${w}"]`); if (el) grid.appendChild(el); });
+}
+
 function initDashboard() {
-  if (typeof Sortable === "undefined") return;
-  const grids = [
-    { el: $("#charts-grid"), key: "charts", handle: ".drag-handle" },
-    { el: $("#kpi-grid"), key: "kpi", handle: null },
-  ];
-  grids.forEach(({ el, key, handle }) => {
-    if (!el) return;
-    dashApplyOrder(el, key);
-    Sortable.create(el, {
-      animation: 180,
-      handle: handle || undefined,
-      draggable: handle ? ".chart-card" : ".kpi",
+  const charts = $("#charts-grid"), kpis = $("#kpi-grid");
+
+  // ---- tamaños de cada widget ----
+  const sizeMap = dashLoad(DASH_SIZE, {});
+  if (charts) {
+    charts.querySelectorAll(".chart-card").forEach((card) => {
+      const w = card.dataset.widget;
+      card.dataset.size = (w in sizeMap) ? sizeMap[w] : (DEFAULT_SIZE[w] ?? 0);
+      applySize(card);
+    });
+    charts.addEventListener("click", (e) => {
+      const btn = e.target.closest(".widget-btn");
+      if (!btn) return;
+      const card = btn.closest(".chart-card");
+      let idx = Number(card.dataset.size || 0);
+      idx += btn.dataset.act === "bigger" ? 1 : -1;
+      idx = Math.max(0, Math.min(SIZES.length - 1, idx));
+      card.dataset.size = idx;
+      applySize(card);
+      const map = dashLoad(DASH_SIZE, {});
+      map[card.dataset.widget] = idx;
+      dashSave(DASH_SIZE, map);
+    });
+  }
+
+  // ---- arrastrar para reordenar ----
+  if (typeof Sortable !== "undefined") {
+    const common = {
+      animation: 150,
+      swapThreshold: 0.6,        // hace falta cubrir el 60% del hueco para intercambiar (menos saltos)
+      invertSwap: true,          // dirección de swap más predecible
+      fallbackOnBody: true,      // el "fantasma" sigue al cursor sin saltos del grid
+      forceFallback: true,       // consistente en ratón y táctil
+      fallbackTolerance: 5,
+      delay: 60, delayOnTouchOnly: true,   // evita arrastres accidentales en móvil al hacer scroll
       ghostClass: "widget-ghost",
       chosenClass: "widget-chosen",
       dragClass: "widget-drag",
-      forceFallback: true,          // arrastre consistente en móvil y escritorio
-      fallbackTolerance: 4,
-      onEnd: () => dashSaveOrder(el, key),
-    });
-  });
+    };
+    if (charts) Sortable.create(charts, { ...common, handle: ".drag-handle", draggable: ".chart-card", filter: ".widget-btn", preventOnFilter: false, onEnd: () => dashSaveOrder(charts, "charts") });
+    if (kpis) Sortable.create(kpis, { ...common, draggable: ".kpi", onEnd: () => dashSaveOrder(kpis, "kpi") });
+  }
+  if (charts) dashApplyOrder(charts, "charts");
+  if (kpis) dashApplyOrder(kpis, "kpi");
+
   $("#dash-reset")?.addEventListener("click", () => {
-    grids.forEach(({ key }) => { try { localStorage.removeItem(DASH_KEY + key); } catch (e) {} });
+    [DASH_ORDER + "charts", DASH_ORDER + "kpi", DASH_SIZE].forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
     location.reload();
   });
 }

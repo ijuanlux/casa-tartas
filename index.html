@@ -295,27 +295,45 @@
         </div>
         <div class="charts-grid" id="charts-grid">
           <div class="card chart-card" data-widget="composicion">
-            <h3 class="drag-handle"><span class="grip">⠿</span> Composición de la caja</h3>
+            <div class="chart-head">
+              <h3 class="drag-handle"><span class="grip">⠿</span> Composición de la caja</h3>
+              <div class="widget-tools"><button class="widget-btn" data-act="smaller" title="Encoger">−</button><button class="widget-btn" data-act="bigger" title="Agrandar">+</button></div>
+            </div>
             <div class="chart-box"><canvas id="chart-composicion"></canvas></div>
           </div>
           <div class="card chart-card" data-widget="locales">
-            <h3 class="drag-handle"><span class="grip">⠿</span> Caja por local</h3>
+            <div class="chart-head">
+              <h3 class="drag-handle"><span class="grip">⠿</span> Caja por local</h3>
+              <div class="widget-tools"><button class="widget-btn" data-act="smaller" title="Encoger">−</button><button class="widget-btn" data-act="bigger" title="Agrandar">+</button></div>
+            </div>
             <div class="chart-box"><canvas id="chart-locales"></canvas></div>
           </div>
-          <div class="card chart-card chart-wide" data-widget="meses">
-            <h3 class="drag-handle"><span class="grip">⠿</span> Caja por mes <span class="chart-hint">(toca una barra para ver ese mes)</span></h3>
+          <div class="card chart-card" data-widget="meses">
+            <div class="chart-head">
+              <h3 class="drag-handle"><span class="grip">⠿</span> Caja por mes <span class="chart-hint">(toca una barra para ver ese mes)</span></h3>
+              <div class="widget-tools"><button class="widget-btn" data-act="smaller" title="Encoger">−</button><button class="widget-btn" data-act="bigger" title="Agrandar">+</button></div>
+            </div>
             <div class="chart-box"><canvas id="chart-meses"></canvas></div>
           </div>
-          <div class="card chart-card chart-wide" data-widget="evolucion">
-            <h3 class="drag-handle"><span class="grip">⠿</span> <span id="evo-title">Evolución de la caja</span></h3>
+          <div class="card chart-card" data-widget="evolucion">
+            <div class="chart-head">
+              <h3 class="drag-handle"><span class="grip">⠿</span> <span id="evo-title">Evolución de la caja</span></h3>
+              <div class="widget-tools"><button class="widget-btn" data-act="smaller" title="Encoger">−</button><button class="widget-btn" data-act="bigger" title="Agrandar">+</button></div>
+            </div>
             <div class="chart-box"><canvas id="chart-evolucion"></canvas></div>
           </div>
           <div class="card chart-card" data-widget="pago">
-            <h3 class="drag-handle"><span class="grip">⠿</span> Tarjeta vs Efectivo</h3>
+            <div class="chart-head">
+              <h3 class="drag-handle"><span class="grip">⠿</span> Tarjeta vs Efectivo</h3>
+              <div class="widget-tools"><button class="widget-btn" data-act="smaller" title="Encoger">−</button><button class="widget-btn" data-act="bigger" title="Agrandar">+</button></div>
+            </div>
             <div class="chart-box"><canvas id="chart-pago"></canvas></div>
           </div>
           <div class="card chart-card" data-widget="gastos">
-            <h3 class="drag-handle"><span class="grip">⠿</span> Gastos: suministros y banco</h3>
+            <div class="chart-head">
+              <h3 class="drag-handle"><span class="grip">⠿</span> Gastos: suministros y banco</h3>
+              <div class="widget-tools"><button class="widget-btn" data-act="smaller" title="Encoger">−</button><button class="widget-btn" data-act="bigger" title="Agrandar">+</button></div>
+            </div>
             <div class="chart-box"><canvas id="chart-gastos"></canvas></div>
           </div>
         </div>

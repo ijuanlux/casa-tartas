@@ -185,7 +185,16 @@ body.login-mode, body.login-mode * { cursor: none; }
 
 .charts-grid { max-width: 1100px; margin: 0 auto 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 4px; }
 .chart-card { margin: 0; }
-.chart-card h3 { margin: 0 0 12px; font-family: 'Fredoka', sans-serif; font-size: 1.05rem; }
+.chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.chart-head h3 { margin: 0; font-family: 'Fredoka', sans-serif; font-size: 1.05rem; flex: 1; }
+.widget-tools { display: flex; gap: 4px; flex-shrink: 0; }
+.widget-btn {
+  width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--line);
+  background: var(--bg-2); color: var(--ink); font-size: 1rem; line-height: 1;
+  display: grid; place-items: center; padding: 0;
+}
+.widget-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.widget-btn:active { transform: scale(0.92); }
 
 /* arrastrar/reordenar (tipo Zabbix) */
 .dash-tip { max-width: 1100px; margin: 0 auto 12px; padding: 0 4px; font-size: 0.85rem; color: var(--ink-soft); }
@@ -198,10 +207,13 @@ body.login-mode, body.login-mode * { cursor: none; }
 .widget-ghost { opacity: 0.35; }
 .widget-chosen { box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
 .widget-drag { transform: rotate(1.5deg) scale(1.02); }
-.chart-wide { grid-column: 1 / -1; }
 .chart-box { position: relative; height: 260px; }
-.chart-wide .chart-box { height: 300px; }
-@media (max-width: 720px) { .charts-grid { grid-template-columns: 1fr; } .chart-wide { grid-column: auto; } }
+.chart-card.w2 { grid-column: span 2; }
+.chart-card.h2 .chart-box { height: 400px; }
+@media (max-width: 720px) {
+  .charts-grid { grid-template-columns: 1fr; }
+  .chart-card.w2 { grid-column: auto; }
+}
 
 /* ====== Mascota tarta deprimida ====== */
 .cake-mascot { position: fixed; bottom: 16px; left: 16px; z-index: 60; width: 96px; pointer-events: none; will-change: transform; }
